@@ -7,15 +7,27 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-
-    @ExceptionHandler(PriceNotFoundException.class)
-    public ResponseEntity<ApiError> handlePriceNotFound(PriceNotFoundException exception) {
-
+    
+    @ExceptionHandler(SeriesNotFoundException.class)
+    public ResponseEntity<ApiError> handleSeriesNotFound(
+        SeriesNotFoundException exception
+    ) {
         ApiError error = new ApiError(
-            "PRICE_NOT_FOUND",
+            "SERIES_NOT_FOUND",
             exception.getMessage()
         );
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiError> handleInvalidArgument(IllegalArgumentException exception) {
+
+        ApiError error = new ApiError(
+            "INVALID_ARGUMENT",
+            exception.getMessage()
+        );
+
+        return ResponseEntity.badRequest().body(error);
     }
 }
