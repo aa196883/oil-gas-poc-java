@@ -13,6 +13,12 @@ public class PriceService {
     );
 
     public CommodityPrice getPrice(String ticker) {
-        return prices.get(ticker);
+        CommodityPrice price = prices.get(ticker);
+
+        if (price == null) {
+            throw new PriceNotFoundException(ticker);
+        }
+
+         return price;
     }
 }
