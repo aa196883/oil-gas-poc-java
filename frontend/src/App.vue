@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import PriceChart from './components/PriceChart.vue'
 
 const series = ref([])
 const loading = ref(false)
@@ -191,21 +192,26 @@ async function analyze() {
       <template v-else>
         <p>{{ deltas.length }} cotations analysées.</p>
 
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Écart au prix déclaré</th>
-            </tr>
-          </thead>
+        <!-- BLOC 3 : RÉSULTATS -->
+        <section class="card">
+          <h2>03 — Résultats</h2>
 
-          <tbody>
-            <tr v-for="point in deltas" :key="point.date">
-              <td>{{ point.date }}</td>
-              <td>{{ Number(point.delta).toFixed(2) }} %</td>
-            </tr>
-          </tbody>
-        </table>
+          <p v-if="analyzing">Calcul en cours...</p>
+
+          <p v-else-if="analysisError" class="error">
+            {{ analysisError }}
+          </p>
+
+          <p v-else-if="deltas.length === 0">
+            Aucun résultat à afficher.
+          </p>
+
+          <PriceChart
+            v-else
+            :deltas="deltas"
+            :reference-price="operation.referencePrice"
+          />
+        </section>
       </template>
     </section>
   </main>
