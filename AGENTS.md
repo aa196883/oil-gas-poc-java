@@ -16,6 +16,8 @@ The Vue 3/Vite client is in `frontend/`, with code in `src/` and static files in
 - `cd frontend && npm run dev`: start the Vite development server.
 - `cd frontend && npm run build`: build the production bundle.
 - `cd frontend && npm run lint`: run Oxlint and ESLint; use `npm run format` for Prettier.
+- `cd frontend && npm run screenshot`: launch a temporary preview with mocked API data and save a UI screenshot to `artifacts/frontend.png`.
+- Use the screenshot command to inspect rendering and exercise representative values and UI controls after frontend changes.
 
 ## Coding Style & Naming Conventions
 

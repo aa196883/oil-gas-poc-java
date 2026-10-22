@@ -28,7 +28,7 @@ function updateChart() {
 
   const reference = props.referencePrice
 
-  const points = props.deltas.map(point => {
+  const points = props.deltas.map((point) => {
     const delta = Number(point.delta)
 
     return {
@@ -39,7 +39,7 @@ function updateChart() {
     }
   })
 
-  const values = [reference, ...points.map(p => p.price)]
+  const values = [reference, ...points.map((p) => p.price)]
   const min = Math.min(...values)
   const max = Math.max(...values)
   const padding = Math.max((max - min) * 0.15, Math.abs(reference) * 0.01, 1)
@@ -56,15 +56,15 @@ function updateChart() {
 
     tooltip: {
       trigger: 'axis',
-      formatter: params => {
-        const point = points.find(p => p.time === params[0]?.value?.[0])
+      formatter: (params) => {
+        const point = points.find((p) => p.time === params[0]?.value?.[0])
         if (!point) return ''
 
         return `
           <strong>${point.date}</strong><br/>
-          Prix marché : ${point.price.toFixed(2)} USD/MT<br/>
-          Prix déclaré : ${reference.toFixed(2)} USD/MT<br/>
-          Écart : ${point.delta > 0 ? '+' : ''}${point.delta.toFixed(2)} %
+          Market price: ${point.price.toFixed(2)} USD/MT<br/>
+          Declared price: ${reference.toFixed(2)} USD/MT<br/>
+          Difference: ${point.delta > 0 ? '+' : ''}${point.delta.toFixed(2)} %
         `
       },
     },
@@ -90,7 +90,7 @@ function updateChart() {
 
     series: [
       {
-        name: 'Écarts',
+        name: 'Differences',
         type: 'custom',
         coordinateSystem: 'cartesian2d',
         z: 2,
@@ -120,13 +120,11 @@ function updateChart() {
           }
         },
 
-        data: showDeltas.value
-          ? points.map(p => [p.time, p.delta, p.price])
-          : [],
+        data: showDeltas.value ? points.map((p) => [p.time, p.delta, p.price]) : [],
       },
 
       {
-        name: 'Prix de marché',
+        name: 'Market price',
         type: 'line',
         z: 3,
         smooth: false,
@@ -140,7 +138,7 @@ function updateChart() {
           color: '#2563eb',
         },
 
-        data: points.map(p => [p.time, p.price]),
+        data: points.map((p) => [p.time, p.price]),
 
         markLine: {
           silent: true,
@@ -149,7 +147,7 @@ function updateChart() {
           label: {
             show: true,
             position: 'insideEndTop',
-            formatter: `Prix déclaré : ${reference.toFixed(2)} USD/MT`,
+            formatter: `Declared price: ${reference.toFixed(2)} USD/MT`,
             color: '#475569',
           },
           lineStyle: {
@@ -181,10 +179,7 @@ onBeforeUnmount(() => {
   chart?.dispose()
 })
 
-watch(
-  () => [props.deltas, props.referencePrice, showDeltas.value],
-  updateChart
-)
+watch(() => [props.deltas, props.referencePrice, showDeltas.value], updateChart)
 </script>
 
 <template>
@@ -192,7 +187,7 @@ watch(
     <div class="chart-toolbar">
       <label>
         <input v-model="showDeltas" type="checkbox" />
-        Afficher les écarts (%)
+        Show differences (%)
       </label>
     </div>
 

@@ -1,0 +1,24 @@
+<script setup>
+import PriceChart from './PriceChart.vue'
+defineProps({
+  deltas: { type: Array, required: true },
+  referencePrice: { type: Number, required: true },
+  analyzing: { type: Boolean, required: true },
+  error: { type: String, default: null },
+})
+</script>
+
+<template>
+  <section class="card">
+    <h2>03 — Results</h2>
+    <p v-if="analyzing">Calculating...</p>
+    <p v-else-if="error" class="error">{{ error }}</p>
+    <p v-else-if="deltas.length === 0">
+      No results yet. Run an analysis to display price differences.
+    </p>
+    <template v-else>
+      <p>{{ deltas.length }} quotations analyzed.</p>
+      <PriceChart :deltas="deltas" :reference-price="referencePrice" />
+    </template>
+  </section>
+</template>
