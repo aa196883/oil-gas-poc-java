@@ -80,4 +80,17 @@ public class SeriesRepository {
 
         return count != null && count > 0;
     }
+
+    public Optional<String> findBenchmarkId(long seriesId) {
+        String sql = "SELECT benchmark_id FROM metadata WHERE id = ?";
+
+        List<String> results = jdbc.query(
+            sql,
+            (rs, rowNum) -> rs.getString("benchmark_id"),
+            seriesId
+        );
+
+        return results.stream().findFirst();
+    }
+
 }

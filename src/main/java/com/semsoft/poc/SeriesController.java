@@ -1,5 +1,6 @@
 package com.semsoft.poc;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -22,10 +23,15 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 )
 public class SeriesController {
 
-    private final SeriesService service;
+    private final SeriesService seriesService;
+    private final DeltaService deltaService;
 
-    public SeriesController(SeriesService service) {
-        this.service = service;
+    public SeriesController(
+        SeriesService seriesService,
+        DeltaService deltaService
+    ) {
+        this.seriesService = seriesService;
+        this.deltaService = deltaService;
     }
 
     @Operation(
@@ -34,7 +40,7 @@ public class SeriesController {
     )
     @GetMapping
     public List<SeriesSummary> getAllSeries() {
-        return service.getAllSeries();
+        return seriesService.getAllSeries();
     }
 
     @Operation(
@@ -52,6 +58,35 @@ public class SeriesController {
         @Parameter(description = "End date (inclusive)", example = "2020-01-31")
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end
     ) {
-        return service.getPrices(id, start, end);
+        return seriesService.getPrices(id, start, end);
+    }
+
+    @Operation(
+        summary = "Compute historical price deltas",
+        description = "Converts market quotations to USD/MT and computes their percentage differences to a reference price expressed in USD/MT."
+    )
+    @GetMapping("/{id}/deltas")
+    public List<DeltaPoint> getDeltas(
+        @PathVariable long id,
+
+        @Parameter(description = "Start date (inclusive)", example = "2020-01-01")
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+
+        @Parameter(description = "End date (inclusive)", example = "2020-01-31")
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
+
+        @Parameter(
+            description = "Reference price in USD/MT",
+            example = "550"
+        )
+        @RequestParam
+        BigDecimal referencePrice
+    ) {
+        return deltaService.getDeltas(
+            id,
+            start,
+            end,
+            referencePrice
+        );
     }
 }
