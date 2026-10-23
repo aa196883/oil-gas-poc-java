@@ -66,6 +66,26 @@ public class SeriesRepository {
         );
     }
 
+    public List<PricePoint> findPricesUntil(long seriesId, LocalDate end) {
+        String sql = """
+            SELECT date, price
+            FROM prices
+            WHERE metadata_id = ?
+            AND date <= ?
+            ORDER BY date
+            """;
+
+        return jdbc.query(
+            sql,
+            (rs, rowNum) -> new PricePoint(
+                rs.getDate("date").toLocalDate(),
+                rs.getBigDecimal("price")
+            ),
+            seriesId,
+            end
+        );
+    }
+
     public boolean existsById(long seriesId) {
 
         String sql = """
@@ -101,6 +121,18 @@ public class SeriesRepository {
         List<String> results = jdbc.query(
             sql,
             (rs, rowNum) -> rs.getString("family"),
+            seriesId
+        );
+
+        return results.stream().filter(java.util.Objects::nonNull).findFirst();
+    }
+
+    public Optional<String> findBenchmarkZone(long seriesId) {
+        String sql = "SELECT zone FROM metadata WHERE id = ?";
+
+        List<String> results = jdbc.query(
+            sql,
+            (rs, rowNum) -> rs.getString("zone"),
             seriesId
         );
 

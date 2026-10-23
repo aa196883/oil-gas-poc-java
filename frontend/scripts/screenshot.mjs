@@ -49,8 +49,9 @@ try {
       ]),
     })
   })
-  await page.route('**/api/series/*/prices?*', (route) => {
-    assert.equal(new URL(route.request().url()).pathname, '/api/series/1/prices')
+  await page.route('**/api/series/*/prices-with-freight?*', (route) => {
+    assert.equal(new URL(route.request().url()).pathname, '/api/series/1/prices-with-freight')
+    assert.equal(new URL(route.request().url()).searchParams.get('freightId'), '5')
     assert.equal(new URL(route.request().url()).searchParams.get('unit'), 'USD/BBL')
     return route.fulfill({
       contentType: 'application/json',
@@ -68,6 +69,7 @@ try {
     const params = new URL(route.request().url()).searchParams
     assert.equal(params.get('unit'), 'USD/BBL')
     assert.equal(params.get('referencePrice'), '75')
+    assert.equal(params.get('freightId'), '5')
     return route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify([

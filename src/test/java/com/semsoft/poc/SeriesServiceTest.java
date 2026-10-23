@@ -75,4 +75,35 @@ public class SeriesServiceTest {
         assertEquals(date, result.getFirst().date());
         assertEquals(0, new BigDecimal("2").compareTo(result.getFirst().price()));
     }
+    @Test
+    void shouldAddLastKnownFreightPriceAndConvertBackToRequestedUnit() {
+        SeriesRepository repository = mock(SeriesRepository.class);
+        SeriesService service = new SeriesService(repository, new UnitConverter());
+        LocalDate start = LocalDate.of(2026, 1, 5);
+        LocalDate end = LocalDate.of(2026, 1, 7);
+
+        when(repository.existsById(1L)).thenReturn(true);
+        when(repository.existsById(15L)).thenReturn(true);
+        when(repository.findBenchmarkUnit(1L)).thenReturn(Optional.of("USD/BBL"));
+        when(repository.findBenchmarkFamily(1L)).thenReturn(Optional.of("Crude Oil (Brut)"));
+        when(repository.findBenchmarkUnit(15L)).thenReturn(Optional.of("USD/day"));
+        when(repository.findBenchmarkFamily(15L)).thenReturn(Optional.of("GNL (LNG)"));
+        when(repository.findBenchmarkZone(15L)).thenReturn(Optional.of("Europe"));
+        when(repository.findPrices(1L, start, end)).thenReturn(List.of(
+            new PricePoint(start, new BigDecimal("10")),
+            new PricePoint(end, new BigDecimal("20"))
+        ));
+        when(repository.findPricesUntil(15L, end)).thenReturn(List.of(
+            new PricePoint(start.minusDays(4), new BigDecimal("100000")),
+            new PricePoint(start.plusDays(1), new BigDecimal("200000"))
+        ));
+
+        List<PricePoint> result = service.getPricesWithFreight(
+            1L, 15L, start, end, "USD/MT"
+        );
+
+        assertEquals(0, new BigDecimal("108.30800000").compareTo(result.get(0).price()));
+        assertEquals(0, new BigDecimal("216.61600000").compareTo(result.get(1).price()));
+    }
+
 }

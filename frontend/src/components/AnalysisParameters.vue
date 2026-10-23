@@ -58,7 +58,7 @@ defineEmits(['update:selectedSeriesId', 'update:selectedFretSeriesId', 'update:w
     <p class="period">Analyzed period: {{ startDate }} to {{ endDate }}</p>
     <button
       type="button"
-      :disabled="selectedSeriesId === null || analyzing || loading"
+      :disabled="selectedSeriesId === null || (showFret && selectedFretSeriesId === null) || analyzing || loading"
       @click="$emit('analyze')"
     >
       {{ analyzing ? 'Analyzing...' : 'Analyze prices' }}

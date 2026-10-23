@@ -12,7 +12,7 @@ public class UnitConverterTest {
 
     @Test
     void shouldConvertWtiToUsdPerMt() {
-        BigDecimal result = converter.getFactor("USD/BBL", "Crude Oil (Brut)").multiply(new BigDecimal("75.50"));
+        BigDecimal result = converter.getCommodityFactor("USD/BBL", "Crude Oil (Brut)").multiply(new BigDecimal("75.50"));
 
         assertEquals(0, new BigDecimal("553.4150").compareTo(result));
     }
@@ -20,25 +20,25 @@ public class UnitConverterTest {
     @Test
     void shouldReturnLngFreightFactorsByZone() {
         assertEquals(0, new BigDecimal("0.00027228").compareTo(
-            converter.getFactor("USD/day", "GNL (LNG)", "Asie")
+            converter.getFreightFactor("USD/day", "GNL (LNG)", "Asie")
         ));
         assertEquals(0, new BigDecimal("0.00035008").compareTo(
-            converter.getFactor("USD/day", "GNL (LNG)", "Europe")
+            converter.getFreightFactor("USD/day", "GNL (LNG)", "Europe")
         ));
         assertEquals(0, new BigDecimal("0.00068719").compareTo(
-            converter.getFactor("USD/day", "GNL (LNG)", "USA")
+            converter.getFreightFactor("USD/day", "GNL (LNG)", "USA")
         ));
     }
 
     @Test
-    void shouldRejectLngFreightConversionWithoutKnownZone() {
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> converter.getFactor("USD/day", "GNL (LNG)")
+    void shouldReturnIdentityFactorForFreightAlreadyInUsdPerMt() {
+        assertEquals(
+            0,
+            BigDecimal.ONE.compareTo(converter.getFreightFactor("USD/MT", "Crude Oil (Brut)", null))
         );
         assertThrows(
             IllegalArgumentException.class,
-            () -> converter.getFactor("USD/day", "GNL (LNG)", "unknown")
+            () -> converter.getFreightFactor("USD/day", "GNL (LNG)", "unknown")
         );
     }
 
@@ -46,7 +46,7 @@ public class UnitConverterTest {
     void shouldRejectUnknownConversion() {
         assertThrows(
             IllegalArgumentException.class,
-            () -> converter.getFactor("unknown", "Crude Oil (Brut)")
+            () -> converter.getCommodityFactor("unknown", "Crude Oil (Brut)")
                 .multiply(new BigDecimal("100"))
         );
     }

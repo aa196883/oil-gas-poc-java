@@ -24,7 +24,7 @@ class SeriesControllerTest {
         UnitConverter converter = new UnitConverter();
         mvc = MockMvcBuilders.standaloneSetup(new SeriesController(
             new SeriesService(repository, converter),
-            new DeltaService(repository, converter)
+            new DeltaService()
         )).setControllerAdvice(new GlobalExceptionHandler()).build();
 
         when(repository.findAll()).thenReturn(List.of(
@@ -34,6 +34,12 @@ class SeriesControllerTest {
 
         LocalDate date = LocalDate.of(2026, 1, 5);
         when(repository.existsById(1L)).thenReturn(true);
+        when(repository.existsById(2L)).thenReturn(true);
+        when(repository.findBenchmarkUnit(2L)).thenReturn(Optional.of("USD/MT"));
+        when(repository.findBenchmarkFamily(2L)).thenReturn(Optional.of("Freight"));
+        when(repository.findPricesUntil(2L, date)).thenReturn(
+            List.of(new PricePoint(date.minusDays(1), new BigDecimal("10")))
+        );
         when(repository.findBenchmarkUnit(1L)).thenReturn(Optional.of("USD/BBL"));
         when(repository.findBenchmarkFamily(1L)).thenReturn(Optional.of("Crude Oil (Brut)"));
         when(repository.findPrices(1L, date, date)).thenReturn(
@@ -62,6 +68,23 @@ class SeriesControllerTest {
                 .param("referencePrice", "1.9").param("unit", "USD/Gallon"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].delta").value(5.2632));
+    }
+
+    @Test
+    void shouldReturnPricesAndDeltasWithFreight() throws Exception {
+        mvc.perform(get("/api/series/1/prices-with-freight")
+                .param("freightId", "2")
+                .param("start", "2026-01-05").param("end", "2026-01-05")
+                .param("unit", "USD/MT"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].price").value(625.72));
+
+        mvc.perform(get("/api/series/1/deltas")
+                .param("freightId", "2")
+                .param("start", "2026-01-05").param("end", "2026-01-05")
+                .param("referencePrice", "600").param("unit", "USD/MT"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].delta").value(4.2867));
     }
 
     @Test

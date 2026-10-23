@@ -65,12 +65,29 @@ public class SeriesController {
     }
 
     @Operation(
+        summary = "Get historical prices with freight",
+        description = "Adds the latest known freight quotation to each commodity quotation and returns prices in the requested unit."
+    )
+    @GetMapping("/{id}/prices-with-freight")
+    public List<PricePoint> getPricesWithFreight(
+        @PathVariable long id,
+        @RequestParam long freightId,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
+        @RequestParam String unit
+    ) {
+        return seriesService.getPricesWithFreight(id, freightId, start, end, unit);
+    }
+
+    @Operation(
         summary = "Compute historical price deltas",
-        description = "Converts market quotations and the reference price to USD/MT using the series family, then computes unitless percentage differences."
+        description = "Computes percentage differences from commodity prices, optionally including freight, in the requested unit."
     )
     @GetMapping("/{id}/deltas")
     public List<DeltaPoint> getDeltas(
         @PathVariable long id,
+
+        @RequestParam(required = false) Long freightId,
 
         @Parameter(description = "Start date (inclusive)", example = "2020-01-01")
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
@@ -88,12 +105,9 @@ public class SeriesController {
         @Parameter(description = "Unit of the reference price", example = "USD/MT")
         @RequestParam String unit
     ) {
-        return deltaService.getDeltas(
-            id,
-            start,
-            end,
-            referencePrice,
-            unit
-        );
+        List<PricePoint> prices = freightId == null
+            ? seriesService.getPrices(id, start, end, unit)
+            : seriesService.getPricesWithFreight(id, freightId, start, end, unit);
+        return deltaService.getDeltas(prices, referencePrice);
     }
 }

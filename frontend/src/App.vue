@@ -72,10 +72,15 @@ async function analyze() {
       end: endDate.value,
       unit,
     })
+    const includeFreight =
+      (operation.value.incoterms === 'CFR' || operation.value.incoterms === 'CIF') &&
+      selectedFretSeriesId.value !== null
+    if (includeFreight) params.set('freightId', selectedFretSeriesId.value)
     const deltaParams = new URLSearchParams(params)
     deltaParams.set('referencePrice', referencePrice)
+    const priceEndpoint = includeFreight ? 'prices-with-freight' : 'prices'
     const responses = await Promise.all([
-      fetch(`/api/series/${selectedSeriesId.value}/prices?${params}`),
+      fetch(`/api/series/${selectedSeriesId.value}/${priceEndpoint}?${params}`),
       fetch(`/api/series/${selectedSeriesId.value}/deltas?${deltaParams}`),
     ])
     for (const response of responses) {

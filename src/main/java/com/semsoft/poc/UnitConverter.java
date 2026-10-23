@@ -99,27 +99,30 @@ public class UnitConverter {
         "USA", new BigDecimal("0.00068719")
     );
 
-    public BigDecimal getFactor(String nativeUnit, String family) {
-        return getFactor(nativeUnit, family, null);
-    }
-
-    public BigDecimal getFactor(String nativeUnit, String family, String zone) {
-        if ("USD/day".equals(nativeUnit) && "GNL (LNG)".equals(family)) {
-            BigDecimal factor = zone == null ? null : FRET_FACTORS.get(zone);
-            if (factor != null) {
-                return factor;
-            }
-        }
-
-        Map<String, BigDecimal> familyFactors = nativeUnit == null ? null : COMMODITY_FACTORS.get(nativeUnit);
+    public BigDecimal getCommodityFactor(String unit, String family) {
+        Map<String, BigDecimal> familyFactors = unit == null ? null : COMMODITY_FACTORS.get(unit);
         BigDecimal factor = familyFactors == null || family == null ? null : familyFactors.get(family);
 
         if (factor == null) {
-            String conversion = nativeUnit + " / " + family;
-            if (zone != null) {
-                conversion += " / " + zone;
-            }
-            throw new IllegalArgumentException("Unknown conversion: " + conversion);
+            throw new IllegalArgumentException("Unknown commodity conversion: " + unit + " / " + family);
+        }
+
+        return factor;
+    }
+
+    public BigDecimal getFreightFactor(String unit, String family, String zone) {
+        if ("USD/MT".equals(unit)) {
+            return BigDecimal.ONE;
+        }
+
+        BigDecimal factor = "USD/day".equals(unit) && "GNL (LNG)".equals(family) && zone != null
+            ? FRET_FACTORS.get(zone)
+            : null;
+
+        if (factor == null) {
+            throw new IllegalArgumentException(
+                "Unknown freight conversion: " + unit + " / " + family + " / " + zone
+            );
         }
 
         return factor;
