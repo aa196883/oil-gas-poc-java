@@ -1,9 +1,13 @@
 <script setup>
+import { computed } from 'vue'
 const props = defineProps({
   modelValue: { type: Object, required: true },
   units: { type: Array, required: true },
   families: { type: Array, required: true },
 })
+const availableUnits = computed(() =>
+  [...new Set([...props.units, 'USD/MT'])]
+)
 const emit = defineEmits(['update:modelValue'])
 
 function update(field, value) {
@@ -64,11 +68,11 @@ function update(field, value) {
         Declared price unit
         <select
           :value="modelValue.unit"
-          :disabled="units.length === 0"
+          :disabled="availableUnits.length === 0"
           @change="update('unit', $event.target.value)"
         >
           <option value="" disabled>Select a unit</option>
-          <option v-for="unit in units" :key="unit" :value="unit">{{ unit }}</option>
+          <option v-for="unit in availableUnits" :key="unit" :value="unit">{{ unit }}</option>
         </select>
       </label>
     </div>
