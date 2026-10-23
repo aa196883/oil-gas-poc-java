@@ -81,33 +81,36 @@ public class SeriesController {
 
     @Operation(
         summary = "Compute historical price deltas",
-        description = "Computes percentage differences from commodity prices, optionally including freight, in the requested unit."
+        description = "Computes percentage differences from commodity prices in the requested unit."
     )
     @GetMapping("/{id}/deltas")
     public List<DeltaPoint> getDeltas(
         @PathVariable long id,
-
-        @RequestParam(required = false) Long freightId,
-
-        @Parameter(description = "Start date (inclusive)", example = "2020-01-01")
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
-
-        @Parameter(description = "End date (inclusive)", example = "2020-01-31")
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
-
-        @Parameter(
-            description = "Reference price in the requested unit",
-            example = "550"
-        )
-        @RequestParam
-        BigDecimal referencePrice,
-
-        @Parameter(description = "Unit of the reference price", example = "USD/MT")
+        @RequestParam BigDecimal referencePrice,
         @RequestParam String unit
     ) {
-        List<PricePoint> prices = freightId == null
-            ? seriesService.getPrices(id, start, end, unit)
-            : seriesService.getPricesWithFreight(id, freightId, start, end, unit);
+        List<PricePoint> prices = seriesService.getPrices(id, start, end, unit);
+        return deltaService.getDeltas(prices, referencePrice);
+    }
+
+    @Operation(
+        summary = "Compute historical price deltas with freight",
+        description = "Computes percentage differences from freight-adjusted commodity prices in the requested unit."
+    )
+    @GetMapping("/{id}/deltas-with-freight")
+    public List<DeltaPoint> getDeltasWithFreight(
+        @PathVariable long id,
+        @RequestParam long freightId,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
+        @RequestParam BigDecimal referencePrice,
+        @RequestParam String unit
+    ) {
+        List<PricePoint> prices = seriesService.getPricesWithFreight(
+            id, freightId, start, end, unit
+        );
         return deltaService.getDeltas(prices, referencePrice);
     }
 }

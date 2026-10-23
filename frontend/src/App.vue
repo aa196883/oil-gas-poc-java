@@ -79,9 +79,10 @@ async function analyze() {
     const deltaParams = new URLSearchParams(params)
     deltaParams.set('referencePrice', referencePrice)
     const priceEndpoint = includeFreight ? 'prices-with-freight' : 'prices'
+    const deltaEndpoint = includeFreight ? 'deltas-with-freight' : 'deltas'
     const responses = await Promise.all([
       fetch(`/api/series/${selectedSeriesId.value}/${priceEndpoint}?${params}`),
-      fetch(`/api/series/${selectedSeriesId.value}/deltas?${deltaParams}`),
+      fetch("/api/series/" + selectedSeriesId.value + "/" + deltaEndpoint + "?" + deltaParams),
     ])
     for (const response of responses) {
       if (!response.ok) throw new Error(`HTTP ${response.status}`)

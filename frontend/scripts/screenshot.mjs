@@ -64,8 +64,8 @@ try {
       ]),
     })
   })
-  await page.route('**/api/series/*/deltas?*', (route) => {
-    assert.equal(new URL(route.request().url()).pathname, '/api/series/1/deltas')
+  await page.route('**/api/series/*/deltas-with-freight?*', (route) => {
+    assert.equal(new URL(route.request().url()).pathname, '/api/series/1/deltas-with-freight')
     const params = new URL(route.request().url()).searchParams
     assert.equal(params.get('unit'), 'USD/BBL')
     assert.equal(params.get('referencePrice'), '75')
