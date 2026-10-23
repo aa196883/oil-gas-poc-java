@@ -84,7 +84,7 @@ function updateChart() {
       name: props.unit,
       nameTextStyle: { color: '#64748b' },
       min: min - padding,
-      max: max + padding,
+      max: Math.ceil(max + padding),
       axisLabel: { color: '#64748b' },
       splitLine: {
         lineStyle: { color: '#edf1f5' },
