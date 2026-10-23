@@ -24,7 +24,7 @@ public class UnitConverter {
     // https://nvlpubs.nist.gov/nistpubs/Legacy/IR/nbsir81-2401.pdf
     // Factors below are precomputed with the previous DECIMAL64 precision; 1 MMBtu = 1.05505585262 GJ.
 
-    private static final Map<String, Map<String, BigDecimal>> FACTORS = Map.ofEntries(
+    private static final Map<String, Map<String, BigDecimal>> COMMODITY_FACTORS = Map.ofEntries(
         Map.entry("USD/BBL", Map.of(
             "Crude Oil (Brut)", new BigDecimal("7.33"),
             "Gasoline (Essence)", new BigDecimal("8.35"),
@@ -87,12 +87,39 @@ public class UnitConverter {
         ))
     );
 
+    // LNG freight factors convert USD/day into USD/MT for a standard LNG cargo.
+    // They assume a 174,000 m3 tanker, LNG density of 0.45 tonne/m3, and average
+    // tanker fullness of 98.5%. Travel durations include the return journey:
+    // 21 days for Australia -> Japan (Asia), 27 days for US Gulf -> Europe,
+    // and 53 days for US Gulf -> Japan (USA).
+    // factor = round-trip duration / (174,000 * 0.45 * 0.985)
+    private static final Map<String, BigDecimal> FRET_FACTORS = Map.of(
+        "Asie", new BigDecimal("0.00027228"),
+        "Europe", new BigDecimal("0.00035008"),
+        "USA", new BigDecimal("0.00068719")
+    );
+
     public BigDecimal getFactor(String nativeUnit, String family) {
-        Map<String, BigDecimal> familyFactors = nativeUnit == null ? null : FACTORS.get(nativeUnit);
+        return getFactor(nativeUnit, family, null);
+    }
+
+    public BigDecimal getFactor(String nativeUnit, String family, String zone) {
+        if ("USD/day".equals(nativeUnit) && "GNL (LNG)".equals(family)) {
+            BigDecimal factor = zone == null ? null : FRET_FACTORS.get(zone);
+            if (factor != null) {
+                return factor;
+            }
+        }
+
+        Map<String, BigDecimal> familyFactors = nativeUnit == null ? null : COMMODITY_FACTORS.get(nativeUnit);
         BigDecimal factor = familyFactors == null || family == null ? null : familyFactors.get(family);
 
         if (factor == null) {
-            throw new IllegalArgumentException("Unknown conversion: " + nativeUnit + " / " + family);
+            String conversion = nativeUnit + " / " + family;
+            if (zone != null) {
+                conversion += " / " + zone;
+            }
+            throw new IllegalArgumentException("Unknown conversion: " + conversion);
         }
 
         return factor;
