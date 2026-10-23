@@ -1,6 +1,9 @@
 <script setup>
 defineProps({
   series: { type: Array, required: true },
+  fretSeries: { type: Array, required: true },
+  selectedFretSeriesId: { type: Number, default: null },
+  showFret: { type: Boolean, required: true },
   selectedSeriesId: { type: Number, default: null },
   windowDays: { type: Number, required: true },
   loading: { type: Boolean, required: true },
@@ -9,7 +12,7 @@ defineProps({
   endDate: { type: String, required: true },
   analyzing: { type: Boolean, required: true },
 })
-defineEmits(['update:selectedSeriesId', 'update:windowDays', 'analyze'])
+defineEmits(['update:selectedSeriesId', 'update:selectedFretSeriesId', 'update:windowDays', 'analyze'])
 </script>
 
 <template>
@@ -17,13 +20,25 @@ defineEmits(['update:selectedSeriesId', 'update:windowDays', 'analyze'])
     <h2>02 — Analysis parameters</h2>
     <div class="grid">
       <label class="field">
-        Quotation series
+        Commodity series
         <select
           :value="selectedSeriesId"
           @change="$emit('update:selectedSeriesId', Number($event.target.value))"
         >
           <option value="" disabled>Select a series</option>
           <option v-for="item in series" :key="item.id" :value="item.id">
+            {{ item.benchmarkId }} — {{ item.provider }} — {{ item.unit }}
+          </option>
+        </select>
+      </label>
+      <label v-if="showFret" class="field">
+        Fret series
+        <select
+          :value="selectedFretSeriesId"
+          @change="$emit('update:selectedFretSeriesId', Number($event.target.value))"
+        >
+          <option value="" disabled>Select a series</option>
+          <option v-for="item in fretSeries" :key="item.id" :value="item.id">
             {{ item.benchmarkId }} — {{ item.provider }} — {{ item.unit }}
           </option>
         </select>

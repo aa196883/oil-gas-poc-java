@@ -27,6 +27,11 @@ class SeriesControllerTest {
             new DeltaService(repository, converter)
         )).setControllerAdvice(new GlobalExceptionHandler()).build();
 
+        when(repository.findAll()).thenReturn(List.of(
+            new SeriesSummary(1L, "wti", null, "test", null, "USD", "USD/BBL", "Crude Oil", false),
+            new SeriesSummary(2L, "freight", null, "test", null, "USD", "USD/MT", "Freight", true)
+        ));
+
         LocalDate date = LocalDate.of(2026, 1, 5);
         when(repository.existsById(1L)).thenReturn(true);
         when(repository.findBenchmarkUnit(1L)).thenReturn(Optional.of("USD/BBL"));
@@ -34,6 +39,14 @@ class SeriesControllerTest {
         when(repository.findPrices(1L, date, date)).thenReturn(
             List.of(new PricePoint(date, new BigDecimal("84")))
         );
+    }
+
+    @Test
+    void shouldReturnFreightFlagForEachSeries() throws Exception {
+        mvc.perform(get("/api/series"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].isFret").value(false))
+            .andExpect(jsonPath("$[1].isFret").value(true));
     }
 
     @Test

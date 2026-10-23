@@ -26,6 +26,9 @@ public record SeriesSummary(
     String unit,
 
     @Schema(description = "Commodity family", example = "Crude Oil (Brut)")
-    String family
+    String family,
+
+    @Schema(description = "Whether the series contains freight quotations", example = "false")
+    boolean isFret
 
 ) {}

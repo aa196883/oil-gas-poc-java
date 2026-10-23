@@ -31,6 +31,14 @@ function update(field, value) {
         </select>
       </label>
       <label class="field">
+        Incoterms
+        <select :value="modelValue.incoterms" @change="update('incoterms', $event.target.value)">
+          <option v-for="incoterm in ['FAS', 'FOB', 'CFR', 'CIF']" :key="incoterm" :value="incoterm">
+            {{ incoterm }}
+          </option>
+        </select>
+      </label>
+      <label class="field">
         Country of origin
         <input
           :value="modelValue.origin"

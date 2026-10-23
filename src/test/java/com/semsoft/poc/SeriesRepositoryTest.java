@@ -42,6 +42,19 @@ public class SeriesRepositoryTest {
     private SeriesRepository repository;
 
     @Test
+    void shouldRetrieveFreightFlag() {
+        jdbc.update("""
+            INSERT INTO metadata (id, benchmark_id, series_id, is_fret)
+            VALUES (1000, 'test-commodity', 'test-series-1000', FALSE),
+                   (1001, 'test-freight', 'test-series-1001', TRUE)
+            """);
+
+        List<SeriesSummary> series = repository.findAll();
+        assertFalse(series.stream().filter(item -> item.id() == 1000L).findFirst().orElseThrow().isFret());
+        assertTrue(series.stream().filter(item -> item.id() == 1001L).findFirst().orElseThrow().isFret());
+    }
+
+    @Test
     void shouldRetrievePricesFromDatabase() {
 
         jdbc.update("""

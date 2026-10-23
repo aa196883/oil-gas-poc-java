@@ -1,3 +1,4 @@
+import process from 'node:process'
 import { mkdir } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 import { chromium } from 'playwright'
@@ -40,14 +41,16 @@ try {
     return route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify([
-        { id: 1, benchmarkId: 'BRENT', provider: 'Platts', unit: 'USD/MT', family: 'Crude Oil (Brut)' },
-        { id: 2, benchmarkId: 'DUBAI', provider: 'Argus', unit: 'USD/BBL', family: 'Crude Oil (Brut)' },
-        { id: 3, benchmarkId: 'WTI', provider: 'Argus', unit: 'USD/BBL', family: null },
-        { id: 4, benchmarkId: 'Unavailable', provider: null, unit: null, family: 'Jet Fuel' },
+        { id: 1, benchmarkId: 'BRENT', provider: 'Platts', unit: 'USD/MT', family: 'Crude Oil (Brut)', isFret: false },
+        { id: 2, benchmarkId: 'DUBAI', provider: 'Argus', unit: 'USD/BBL', family: 'Crude Oil (Brut)', isFret: false },
+        { id: 3, benchmarkId: 'WTI', provider: 'Argus', unit: 'USD/BBL', family: null, isFret: false },
+        { id: 4, benchmarkId: 'Unavailable', provider: null, unit: null, family: 'Jet Fuel', isFret: false },
+        { id: 5, benchmarkId: 'FREIGHT', provider: 'Baltic', unit: 'USD/MT', family: 'Freight', isFret: true },
       ]),
     })
   })
   await page.route('**/api/series/*/prices?*', (route) => {
+    assert.equal(new URL(route.request().url()).pathname, '/api/series/1/prices')
     assert.equal(new URL(route.request().url()).searchParams.get('unit'), 'USD/BBL')
     return route.fulfill({
       contentType: 'application/json',
@@ -61,6 +64,7 @@ try {
     })
   })
   await page.route('**/api/series/*/deltas?*', (route) => {
+    assert.equal(new URL(route.request().url()).pathname, '/api/series/1/deltas')
     const params = new URL(route.request().url()).searchParams
     assert.equal(params.get('unit'), 'USD/BBL')
     assert.equal(params.get('referencePrice'), '75')
@@ -77,15 +81,29 @@ try {
   })
 
   await page.goto(baseUrl)
-  await page.getByLabel('Commodity').selectOption('Jet Fuel')
+  await page.getByLabel('Commodity').first().selectOption('Jet Fuel')
   assert.deepEqual(
-    await page.getByLabel('Commodity').locator('option').allTextContents(),
+    await page.getByLabel('Commodity').first().locator('option').allTextContents(),
     ['Select a commodity', 'Crude Oil (Brut)', 'Jet Fuel'],
   )
   await page.getByLabel('Declared price unit').selectOption('USD/BBL')
   assert.equal(await page.getByLabel('Declared price unit').locator('option').count(), 3)
   await page.getByLabel('Declared price', { exact: true }).fill('75')
-  await page.getByLabel('Quotation series').selectOption('1')
+  assert.equal(await page.getByLabel('Incoterms').inputValue(), 'FOB')
+  assert.deepEqual(await page.getByLabel('Incoterms').locator('option').allTextContents(),
+    ['FAS', 'FOB', 'CFR', 'CIF'])
+  assert.equal(await page.getByLabel('Fret series').count(), 0)
+  assert.deepEqual(await page.getByLabel('Commodity series').locator('option').evaluateAll(
+    (options) => options.map((option) => option.value)), ['', '1', '2', '3', '4'])
+  for (const incoterm of ['CFR', 'CIF', 'FAS', 'FOB', 'CIF']) {
+    await page.getByLabel('Incoterms').selectOption(incoterm)
+    assert.equal(await page.getByLabel('Fret series').count(),
+      ['CFR', 'CIF'].includes(incoterm) ? 1 : 0)
+  }
+  assert.deepEqual(await page.getByLabel('Fret series').locator('option').evaluateAll(
+    (options) => options.map((option) => option.value)), ['', '5'])
+  await page.getByLabel('Fret series').selectOption('5')
+  await page.getByLabel('Commodity series').selectOption('1')
   await page.getByLabel('Window around shipment date').selectOption('7')
   await page.getByRole('button', { name: 'Analyze prices' }).click()
   await page.getByText('5 quotations analyzed.').waitFor()

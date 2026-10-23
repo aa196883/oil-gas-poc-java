@@ -9,12 +9,16 @@ const loading = ref(false)
 const error = ref(null)
 const operation = ref({
   commodity: '',
+  incoterms: 'FOB',
   origin: 'Oman',
   destination: 'France',
   shippedOnBoard: '2026-10-15',
   referencePrice: 550,
   unit: '',
 })
+const commoditySeries = computed(() => series.value.filter((item) => !item.isFret))
+const fretSeries = computed(() => series.value.filter((item) => item.isFret))
+const selectedFretSeriesId = ref(null)
 const selectedSeriesId = ref(null)
 const windowDays = ref(15)
 const deltas = ref([])
@@ -22,10 +26,10 @@ const prices = ref([])
 const resultReferencePrice = ref(0)
 const resultUnit = ref('')
 const units = computed(() =>
-  [...new Set(series.value.map((item) => item.unit).filter((unit) => unit?.trim()))].sort(),
+  [...new Set(commoditySeries.value.map((item) => item.unit).filter((unit) => unit?.trim()))].sort(),
 )
 const families = computed(() =>
-  [...new Set(series.value.map((item) => item.family).filter((family) => family?.trim()))].sort(),
+  [...new Set(commoditySeries.value.map((item) => item.family).filter((family) => family?.trim()))].sort(),
 )
 const analyzing = ref(false)
 const analysisError = ref(null)
@@ -104,7 +108,10 @@ onMounted(loadSeries)
     <AnalysisParameters
       v-model:selected-series-id="selectedSeriesId"
       v-model:window-days="windowDays"
-      :series="series"
+      v-model:selected-fret-series-id="selectedFretSeriesId"
+      :series="commoditySeries"
+      :fret-series="fretSeries"
+      :show-fret="operation.incoterms === 'CFR' || operation.incoterms === 'CIF'"
       :loading="loading || !operation.unit"
       :error="error"
       :start-date="startDate"
