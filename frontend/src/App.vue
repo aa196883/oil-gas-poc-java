@@ -13,10 +13,17 @@ const operation = ref({
   destination: 'France',
   shippedOnBoard: '2026-10-15',
   referencePrice: 550,
+  unit: '',
 })
 const selectedSeriesId = ref(null)
 const windowDays = ref(15)
 const deltas = ref([])
+const prices = ref([])
+const resultReferencePrice = ref(0)
+const resultUnit = ref('')
+const units = computed(() =>
+  [...new Set(series.value.map((item) => item.unit).filter((unit) => unit?.trim()))].sort(),
+)
 const analyzing = ref(false)
 const analysisError = ref(null)
 
@@ -27,6 +34,7 @@ async function loadSeries() {
     const response = await fetch('/api/series')
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     series.value = await response.json()
+    operation.value.unit = units.value.includes('USD/MT') ? 'USD/MT' : (units.value[0] ?? '')
   } catch (err) {
     error.value = err.message
   } finally {
@@ -44,19 +52,34 @@ const startDate = computed(() => shiftDate(operation.value.shippedOnBoard, -wind
 const endDate = computed(() => shiftDate(operation.value.shippedOnBoard, windowDays.value))
 
 async function analyze() {
-  if (selectedSeriesId.value === null) return
+  if (selectedSeriesId.value === null || !operation.value.unit) return
   analyzing.value = true
   analysisError.value = null
   deltas.value = []
+  prices.value = []
   try {
+    const { referencePrice, unit } = operation.value
     const params = new URLSearchParams({
       start: startDate.value,
       end: endDate.value,
-      referencePrice: operation.value.referencePrice,
+      unit,
     })
-    const response = await fetch(`/api/series/${selectedSeriesId.value}/deltas?${params}`)
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    deltas.value = await response.json()
+    const deltaParams = new URLSearchParams(params)
+    deltaParams.set('referencePrice', referencePrice)
+    const responses = await Promise.all([
+      fetch(`/api/series/${selectedSeriesId.value}/prices?${params}`),
+      fetch(`/api/series/${selectedSeriesId.value}/deltas?${deltaParams}`),
+    ])
+    for (const response of responses) {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    }
+    const [pricePoints, deltaPoints] = await Promise.all(
+      responses.map((response) => response.json()),
+    )
+    prices.value = pricePoints
+    deltas.value = deltaPoints
+    resultReferencePrice.value = referencePrice
+    resultUnit.value = unit
   } catch (err) {
     analysisError.value = err.message
   } finally {
@@ -73,12 +96,12 @@ onMounted(loadSeries)
       <h1>Price consistency analysis</h1>
       <p>Compare declared prices with market quotations.</p>
     </header>
-    <OperationContext v-model="operation" />
+    <OperationContext v-model="operation" :units="units" />
     <AnalysisParameters
       v-model:selected-series-id="selectedSeriesId"
       v-model:window-days="windowDays"
       :series="series"
-      :loading="loading"
+      :loading="loading || !operation.unit"
       :error="error"
       :start-date="startDate"
       :end-date="endDate"
@@ -87,7 +110,9 @@ onMounted(loadSeries)
     />
     <AnalysisResults
       :deltas="deltas"
-      :reference-price="operation.referencePrice"
+      :prices="prices"
+      :reference-price="resultReferencePrice"
+      :unit="resultUnit"
       :analyzing="analyzing"
       :error="analysisError"
     />

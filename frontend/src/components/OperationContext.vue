@@ -1,5 +1,8 @@
 <script setup>
-const props = defineProps({ modelValue: { type: Object, required: true } })
+const props = defineProps({
+  modelValue: { type: Object, required: true },
+  units: { type: Array, required: true },
+})
 const emit = defineEmits(['update:modelValue'])
 
 function update(field, value) {
@@ -44,7 +47,7 @@ function update(field, value) {
         />
       </label>
       <label class="field">
-        Declared price (USD/MT)
+        Declared price
         <input
           :value="modelValue.referencePrice"
           type="number"
@@ -52,6 +55,17 @@ function update(field, value) {
           step="any"
           @input="update('referencePrice', Number($event.target.value))"
         />
+      </label>
+      <label class="field">
+        Declared price unit
+        <select
+          :value="modelValue.unit"
+          :disabled="units.length === 0"
+          @change="update('unit', $event.target.value)"
+        >
+          <option value="" disabled>Select a unit</option>
+          <option v-for="unit in units" :key="unit" :value="unit">{{ unit }}</option>
+        </select>
       </label>
     </div>
   </section>

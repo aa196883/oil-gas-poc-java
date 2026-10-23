@@ -22,7 +22,8 @@ public class DeltaService {
         long seriesId,
         LocalDate start,
         LocalDate end,
-        BigDecimal referencePrice
+        BigDecimal referencePrice,
+        String referenceUnit
     ) {
         if (start.isAfter(end)) {
             throw new IllegalArgumentException("Invalid date range");
@@ -39,16 +40,18 @@ public class DeltaService {
 
         List<PricePoint> prices = repository.findPrices(seriesId, start, end);
 
-        BigDecimal factor = converter.getFactor(nativeUnit, family);
+        BigDecimal nativeFactor = converter.getFactor(nativeUnit, family);
+        BigDecimal referenceFactor = converter.getFactor(referenceUnit, family);
+        BigDecimal referencePriceUsdPerMt = referencePrice.multiply(referenceFactor);
 
         return prices.stream()
             .map(price -> new DeltaPoint(
                 price.date(),
                 price.price()
-                    .multiply(factor)
-                    .subtract(referencePrice)
+                    .multiply(nativeFactor)
+                    .subtract(referencePriceUsdPerMt)
                     .multiply(BigDecimal.valueOf(100))
-                    .divide(referencePrice, 4, RoundingMode.HALF_UP)
+                    .divide(referencePriceUsdPerMt, 4, RoundingMode.HALF_UP)
             ))
             .toList();
     }

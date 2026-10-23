@@ -2,6 +2,8 @@
 import PriceChart from './PriceChart.vue'
 defineProps({
   deltas: { type: Array, required: true },
+  prices: { type: Array, required: true },
+  unit: { type: String, required: true },
   referencePrice: { type: Number, required: true },
   analyzing: { type: Boolean, required: true },
   error: { type: String, default: null },
@@ -18,7 +20,12 @@ defineProps({
     </p>
     <template v-else>
       <p>{{ deltas.length }} quotations analyzed.</p>
-      <PriceChart :deltas="deltas" :reference-price="referencePrice" />
+      <PriceChart
+        :deltas="deltas"
+        :prices="prices"
+        :reference-price="referencePrice"
+        :unit="unit"
+      />
     </template>
   </section>
 </template>

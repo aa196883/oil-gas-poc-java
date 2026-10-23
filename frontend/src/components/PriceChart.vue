@@ -4,6 +4,8 @@ import * as echarts from 'echarts'
 
 const props = defineProps({
   deltas: { type: Array, required: true },
+  prices: { type: Array, required: true },
+  unit: { type: String, required: true },
   referencePrice: { type: Number, required: true },
 })
 
@@ -28,14 +30,15 @@ function updateChart() {
 
   const reference = props.referencePrice
 
-  const points = props.deltas.map((point) => {
-    const delta = Number(point.delta)
+  const deltasByDate = new Map(props.deltas.map((point) => [point.date, Number(point.delta)]))
+  const points = props.prices.map((point) => {
+    const delta = deltasByDate.get(point.date)
 
     return {
       date: point.date,
       time: Date.parse(`${point.date}T12:00:00Z`),
       delta,
-      price: reference * (1 + delta / 100),
+      price: Number(point.price),
     }
   })
 
@@ -62,8 +65,8 @@ function updateChart() {
 
         return `
           <strong>${point.date}</strong><br/>
-          Market price: ${point.price.toFixed(2)} USD/MT<br/>
-          Declared price: ${reference.toFixed(2)} USD/MT<br/>
+          Market price: ${point.price.toFixed(2)} ${props.unit}<br/>
+          Declared price: ${reference.toFixed(2)} ${props.unit}<br/>
           Difference: ${point.delta > 0 ? '+' : ''}${point.delta.toFixed(2)} %
         `
       },
@@ -78,7 +81,7 @@ function updateChart() {
 
     yAxis: {
       type: 'value',
-      name: 'USD/MT',
+      name: props.unit,
       nameTextStyle: { color: '#64748b' },
       min: min - padding,
       max: max + padding,
@@ -147,7 +150,7 @@ function updateChart() {
           label: {
             show: true,
             position: 'insideEndTop',
-            formatter: `Declared price: ${reference.toFixed(2)} USD/MT`,
+            formatter: `Declared price: ${reference.toFixed(2)} ${props.unit}`,
             color: '#475569',
           },
           lineStyle: {
@@ -179,7 +182,10 @@ onBeforeUnmount(() => {
   chart?.dispose()
 })
 
-watch(() => [props.deltas, props.referencePrice, showDeltas.value], updateChart)
+watch(
+  () => [props.deltas, props.prices, props.referencePrice, props.unit, showDeltas.value],
+  updateChart,
+)
 </script>
 
 <template>

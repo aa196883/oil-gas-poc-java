@@ -45,7 +45,7 @@ public class SeriesController {
 
     @Operation(
         summary = "Get historical prices",
-        description = "Returns historical observations for a price series within a date range."
+        description = "Converts historical observations through USD/MT into the requested unit using the series family."
     )
     @GetMapping("/{id}/prices")
     public List<PricePoint> getPrices(
@@ -56,14 +56,17 @@ public class SeriesController {
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
 
         @Parameter(description = "End date (inclusive)", example = "2020-01-31")
-        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
+
+        @Parameter(description = "Unit of returned prices", example = "USD/BBL")
+        @RequestParam String unit
     ) {
-        return seriesService.getPrices(id, start, end);
+        return seriesService.getPrices(id, start, end, unit);
     }
 
     @Operation(
         summary = "Compute historical price deltas",
-        description = "Converts market quotations to USD/MT and computes their percentage differences to a reference price expressed in USD/MT."
+        description = "Converts market quotations and the reference price to USD/MT using the series family, then computes unitless percentage differences."
     )
     @GetMapping("/{id}/deltas")
     public List<DeltaPoint> getDeltas(
@@ -76,17 +79,21 @@ public class SeriesController {
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
 
         @Parameter(
-            description = "Reference price in USD/MT",
+            description = "Reference price in the requested unit",
             example = "550"
         )
         @RequestParam
-        BigDecimal referencePrice
+        BigDecimal referencePrice,
+
+        @Parameter(description = "Unit of the reference price", example = "USD/MT")
+        @RequestParam String unit
     ) {
         return deltaService.getDeltas(
             id,
             start,
             end,
-            referencePrice
+            referencePrice,
+            unit
         );
     }
 }
