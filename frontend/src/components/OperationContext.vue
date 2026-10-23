@@ -2,6 +2,7 @@
 const props = defineProps({
   modelValue: { type: Object, required: true },
   units: { type: Array, required: true },
+  families: { type: Array, required: true },
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -16,11 +17,14 @@ function update(field, value) {
     <div class="grid">
       <label class="field">
         Commodity
-        <input
+        <select
           :value="modelValue.commodity"
-          type="text"
-          @input="update('commodity', $event.target.value)"
-        />
+          :disabled="families.length === 0"
+          @change="update('commodity', $event.target.value)"
+        >
+          <option value="" disabled>Select a commodity</option>
+          <option v-for="family in families" :key="family" :value="family">{{ family }}</option>
+        </select>
       </label>
       <label class="field">
         Country of origin

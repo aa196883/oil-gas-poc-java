@@ -8,7 +8,7 @@ const series = ref([])
 const loading = ref(false)
 const error = ref(null)
 const operation = ref({
-  commodity: 'Crude Oil',
+  commodity: '',
   origin: 'Oman',
   destination: 'France',
   shippedOnBoard: '2026-10-15',
@@ -24,6 +24,9 @@ const resultUnit = ref('')
 const units = computed(() =>
   [...new Set(series.value.map((item) => item.unit).filter((unit) => unit?.trim()))].sort(),
 )
+const families = computed(() =>
+  [...new Set(series.value.map((item) => item.family).filter((family) => family?.trim()))].sort(),
+)
 const analyzing = ref(false)
 const analysisError = ref(null)
 
@@ -35,6 +38,7 @@ async function loadSeries() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     series.value = await response.json()
     operation.value.unit = units.value.includes('USD/MT') ? 'USD/MT' : (units.value[0] ?? '')
+    operation.value.commodity = families.value[0] ?? ''
   } catch (err) {
     error.value = err.message
   } finally {
@@ -96,7 +100,7 @@ onMounted(loadSeries)
       <h1>Price consistency analysis</h1>
       <p>Compare declared prices with market quotations.</p>
     </header>
-    <OperationContext v-model="operation" :units="units" />
+    <OperationContext v-model="operation" :units="units" :families="families" />
     <AnalysisParameters
       v-model:selected-series-id="selectedSeriesId"
       v-model:window-days="windowDays"

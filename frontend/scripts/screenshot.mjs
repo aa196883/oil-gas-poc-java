@@ -40,10 +40,10 @@ try {
     return route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify([
-        { id: 1, benchmarkId: 'BRENT', provider: 'Platts', unit: 'USD/MT' },
-        { id: 2, benchmarkId: 'DUBAI', provider: 'Argus', unit: 'USD/BBL' },
-        { id: 3, benchmarkId: 'WTI', provider: 'Argus', unit: 'USD/BBL' },
-        { id: 4, benchmarkId: 'Unavailable', provider: null, unit: null },
+        { id: 1, benchmarkId: 'BRENT', provider: 'Platts', unit: 'USD/MT', family: 'Crude Oil (Brut)' },
+        { id: 2, benchmarkId: 'DUBAI', provider: 'Argus', unit: 'USD/BBL', family: 'Crude Oil (Brut)' },
+        { id: 3, benchmarkId: 'WTI', provider: 'Argus', unit: 'USD/BBL', family: null },
+        { id: 4, benchmarkId: 'Unavailable', provider: null, unit: null, family: 'Jet Fuel' },
       ]),
     })
   })
@@ -77,6 +77,11 @@ try {
   })
 
   await page.goto(baseUrl)
+  await page.getByLabel('Commodity').selectOption('Jet Fuel')
+  assert.deepEqual(
+    await page.getByLabel('Commodity').locator('option').allTextContents(),
+    ['Select a commodity', 'Crude Oil (Brut)', 'Jet Fuel'],
+  )
   await page.getByLabel('Declared price unit').selectOption('USD/BBL')
   assert.equal(await page.getByLabel('Declared price unit').locator('option').count(), 3)
   await page.getByLabel('Declared price', { exact: true }).fill('75')

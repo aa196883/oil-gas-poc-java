@@ -23,6 +23,9 @@ public record SeriesSummary(
     String currency,
 
     @Schema(description = "Price unit", example = "USD/BBL")
-    String unit
+    String unit,
+
+    @Schema(description = "Commodity family", example = "Crude Oil (Brut)")
+    String family
 
 ) {}

@@ -20,7 +20,7 @@ public class SeriesRepository {
 
         String sql = """
             SELECT id, benchmark_id, bloomberg_ticker,
-                   provider, symbol, currency, unit
+                   provider, symbol, currency, unit, family
             FROM metadata
             ORDER BY id
             """;
@@ -33,7 +33,8 @@ public class SeriesRepository {
                 rs.getString("provider"),
                 rs.getString("symbol"),
                 rs.getString("currency"),
-                rs.getString("unit")
+                rs.getString("unit"),
+                rs.getString("family")
             )
         );
     }
