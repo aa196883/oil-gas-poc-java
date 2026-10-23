@@ -59,11 +59,11 @@ public class JsonImportService {
                 series_id, provider, symbol, instrument,
                 exchange, currency, unit, price_field,
                 roll_rule, qualification, notes, enabled,
-                start_date, end_date, last_status, last_error
+                start_date, end_date, last_status, last_error, is_fret
             )
             VALUES (
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
             ON CONFLICT (id) DO NOTHING
             """;
@@ -92,7 +92,8 @@ public class JsonImportService {
             date(row, "start_date"),
             date(row, "end_date"),
             text(row, "last_status"),
-            text(row, "last_error")
+            text(row, "last_error"),
+            row.path("is_fret").asBoolean(false)
         );
     }
 
