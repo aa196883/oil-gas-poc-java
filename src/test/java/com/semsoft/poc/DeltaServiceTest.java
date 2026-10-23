@@ -22,8 +22,12 @@ public class DeltaServiceTest {
         long seriesId = 1L;
         LocalDate date = LocalDate.of(2026, 1, 5);
 
-        when(repository.findBenchmarkId(seriesId)).thenReturn(
-            Optional.of("wti")
+        when(repository.findBenchmarkUnit(seriesId)).thenReturn(
+            Optional.of("USD/BBL")
+        );
+
+        when(repository.findBenchmarkFamily(seriesId)).thenReturn(
+            Optional.of("Crude Oil (Brut)")
         );
 
         when(repository.findPrices(seriesId, date, date)).thenReturn(

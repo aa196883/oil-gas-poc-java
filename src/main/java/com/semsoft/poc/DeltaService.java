@@ -32,12 +32,14 @@ public class DeltaService {
             throw new IllegalArgumentException("Reference price must be strictly positive");
         }
 
-        String benchmarkId = repository.findBenchmarkId(seriesId)
+        String nativeUnit = repository.findBenchmarkUnit(seriesId)
+            .orElseThrow(() -> new SeriesNotFoundException(seriesId));
+        String family = repository.findBenchmarkFamily(seriesId)
             .orElseThrow(() -> new SeriesNotFoundException(seriesId));
 
         List<PricePoint> prices = repository.findPrices(seriesId, start, end);
 
-        BigDecimal factor = converter.getFactor(benchmarkId);
+        BigDecimal factor = converter.getFactor(nativeUnit, family);
 
         return prices.stream()
             .map(price -> new DeltaPoint(

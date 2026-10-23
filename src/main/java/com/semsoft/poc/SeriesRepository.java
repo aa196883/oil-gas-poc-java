@@ -81,16 +81,28 @@ public class SeriesRepository {
         return count != null && count > 0;
     }
 
-    public Optional<String> findBenchmarkId(long seriesId) {
-        String sql = "SELECT benchmark_id FROM metadata WHERE id = ?";
+    public Optional<String> findBenchmarkUnit(long seriesId) {
+        String sql = "SELECT unit FROM metadata WHERE id = ?";
 
         List<String> results = jdbc.query(
             sql,
-            (rs, rowNum) -> rs.getString("benchmark_id"),
+            (rs, rowNum) -> rs.getString("unit"),
             seriesId
         );
 
-        return results.stream().findFirst();
+        return results.stream().filter(java.util.Objects::nonNull).findFirst();
+    }
+
+    public Optional<String> findBenchmarkFamily(long seriesId) {
+        String sql = "SELECT family FROM metadata WHERE id = ?";
+
+        List<String> results = jdbc.query(
+            sql,
+            (rs, rowNum) -> rs.getString("family"),
+            seriesId
+        );
+
+        return results.stream().filter(java.util.Objects::nonNull).findFirst();
     }
 
 }

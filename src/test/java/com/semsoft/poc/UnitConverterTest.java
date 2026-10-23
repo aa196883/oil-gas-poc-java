@@ -12,7 +12,7 @@ public class UnitConverterTest {
 
     @Test
     void shouldConvertWtiToUsdPerMt() {
-        BigDecimal result = converter.getFactor("wti").multiply(new BigDecimal("75.50"));
+        BigDecimal result = converter.getFactor("USD/BBL", "Crude Oil (Brut)").multiply(new BigDecimal("75.50"));
 
         assertEquals(0, new BigDecimal("553.4150").compareTo(result));
     }
@@ -21,7 +21,7 @@ public class UnitConverterTest {
     void shouldRejectUnknownConversion() {
         assertThrows(
             IllegalArgumentException.class,
-            () -> converter.getFactor("unknown")
+            () -> converter.getFactor("unknown", "Crude Oil (Brut)")
                 .multiply(new BigDecimal("100"))
         );
     }
