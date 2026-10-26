@@ -21,7 +21,6 @@ defineProps({
       No results yet. Run an analysis to display price differences.
     </p>
     <template v-else>
-      <p>{{ deltas.length }} quotations analyzed.</p>
       <PriceChart
         :deltas="deltas"
         :prices="prices"

@@ -16,6 +16,13 @@ const showDeltas = ref(true)
 const showCommodityPrices = ref(false)
 const showFreightPrices = ref(false)
 const showQuantiles = ref(false)
+const quantileLabels = ref([])
+const layerHelp = {
+  commodity: 'Shows the commodity price before freight is added.',
+  freight: 'Shows the freight price separately in the selected unit.',
+  differences: 'Shows the difference between each market price and the declared price.',
+  quantiles: 'Shows historical price percentiles and their shaded ranges.',
+}
 
 const quantileLevels = [0.05, 0.25, 0.5, 0.75, 0.95]
 
@@ -33,6 +40,7 @@ function deltaColor(delta) {
 }
 
 function computeQuantiles(prices) {
+  if (!prices.length) return {}
   const sorted = prices.map((point) => Number(point.price)).sort((a, b) => a - b)
 
   return Object.fromEntries(
@@ -89,12 +97,31 @@ function updateChart() {
   const max = Math.max(...values)
   const padding = Math.max((max - min) * 0.15, Math.abs(reference) * 0.01, 1)
 
+  const axisMin = Math.floor(min - padding)
+  const axisMax = Math.ceil(max + padding)
+  const plotHeight = chart.getHeight() - 100
+  let previousTop = 31
+  quantileLabels.value =
+    showQuantiles.value && props.prices.length
+      ? [...quantileLevels].reverse().map((q) => {
+          const idealTop = 45 + ((axisMax - quantiles[q]) / (axisMax - axisMin)) * plotHeight
+          const top = Math.max(idealTop, previousTop + 28)
+          previousTop = top
+          return { q, value: quantiles[q].toFixed(2), top }
+        })
+      : []
+  const overflow = (quantileLabels.value.at(-1)?.top ?? 0) - (chart.getHeight() - 55)
+  if (overflow > 0)
+    quantileLabels.value.forEach((label) => {
+      label.top -= overflow
+    })
+
   const option = {
     animationDuration: 300,
 
     grid: {
       top: 45,
-      right: 35,
+      right: showQuantiles.value ? 170 : 35,
       bottom: 55,
       left: 75,
     },
@@ -135,8 +162,8 @@ function updateChart() {
       type: 'value',
       name: props.unit,
       nameTextStyle: { color: '#64748b' },
-      min: Math.floor(min - padding),
-      max: Math.ceil(max + padding),
+      min: axisMin,
+      max: axisMax,
       axisLabel: { color: '#64748b' },
       splitLine: {
         lineStyle: { color: '#edf1f5' },
@@ -248,6 +275,14 @@ function updateChart() {
               label: { show: false },
               data: [
                 [
+                  { yAxis: axisMin, itemStyle: { color: 'rgba(239, 68, 68, 0.09)' } },
+                  { yAxis: quantiles[0.05] },
+                ],
+                [
+                  { yAxis: quantiles[0.95], itemStyle: { color: 'rgba(239, 68, 68, 0.09)' } },
+                  { yAxis: axisMax },
+                ],
+                [
                   { yAxis: quantiles[0.05], itemStyle: { color: 'rgba(245, 158, 11, 0.09)' } },
                   { yAxis: quantiles[0.25] },
                 ],
@@ -267,12 +302,7 @@ function updateChart() {
               silent: true,
               symbol: 'none',
               animation: false,
-              label: {
-                show: true,
-                position: 'insideStartTop',
-                color: '#64748b',
-                formatter: ({ name, value }) => name + ': ' + Number(value).toFixed(2),
-              },
+              label: { show: false },
               lineStyle: { color: '#94a3b8', width: 1, type: 'dashed' },
               data: quantileLevels.map((quantile) => ({
                 name: 'Q' + String(quantile * 100).padStart(2, '0'),
@@ -289,6 +319,7 @@ function updateChart() {
 
 function resizeChart() {
   chart?.resize()
+  updateChart()
 }
 
 onMounted(() => {
@@ -323,24 +354,46 @@ watch(
   <div class="chart-container">
     <div class="chart-toolbar">
       <label v-if="commodityPrices.length > 0">
-        <input v-model="showCommodityPrices" type="checkbox" />
+        <input v-model="showCommodityPrices" type="checkbox" aria-label="Show commodity price" />
         Show commodity price
+        <span class="help-popup" role="tooltip">{{ layerHelp.commodity }}</span>
       </label>
       <label v-if="freightPrices.length > 0">
-        <input v-model="showFreightPrices" type="checkbox" />
+        <input v-model="showFreightPrices" type="checkbox" aria-label="Show freight price" />
         Show freight price
+        <span class="help-popup" role="tooltip">{{ layerHelp.freight }}</span>
       </label>
       <label>
-        <input v-model="showDeltas" type="checkbox" />
+        <input v-model="showDeltas" type="checkbox" aria-label="Show differences (%)" />
         Show differences (%)
+        <span class="help-popup" role="tooltip">{{ layerHelp.differences }}</span>
       </label>
       <label>
-        <input v-model="showQuantiles" type="checkbox" />
+        <input v-model="showQuantiles" type="checkbox" aria-label="Show quantiles" />
         Show quantiles
+        <span class="help-popup" role="tooltip">{{ layerHelp.quantiles }}</span>
       </label>
     </div>
 
-    <div ref="chartElement" class="chart"></div>
+    <div class="chart-frame">
+      <div ref="chartElement" class="chart"></div>
+      <div
+        v-for="label in quantileLabels"
+        :key="label.q"
+        class="quantile-label"
+        :style="{ top: label.top + 'px' }"
+      >
+        <span>Q{{ String(label.q * 100).padStart(2, '0') }}: {{ label.value }}</span>
+        <span class="quantile-help">
+          <button type="button" :aria-label="'Explain Q' + String(label.q * 100).padStart(2, '0')">
+            ?
+          </button>
+          <span class="help-popup" role="tooltip">
+            {{ label.q * 100 }} percent of historical values below {{ label.value }}
+          </span>
+        </span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -358,6 +411,7 @@ watch(
 }
 
 .chart-toolbar label {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -369,5 +423,64 @@ watch(
 .chart {
   width: 100%;
   height: 460px;
+}
+</style>
+
+<style scoped>
+.chart-frame {
+  position: relative;
+}
+.quantile-label {
+  position: absolute;
+  right: 8px;
+  width: 150px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  color: #64748b;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.quantile-help {
+  position: relative;
+  display: inline-flex;
+}
+.quantile-help button {
+  border: 1px solid #94a3b8;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: white;
+  color: #64748b;
+  cursor: help;
+  font-size: 12px;
+}
+.help-popup {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  width: 220px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  color: #334155;
+  box-shadow: 0 4px 16px #0f172a1a;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: normal;
+  white-space: normal;
+  pointer-events: none;
+  z-index: 10;
+}
+.chart-toolbar label:hover .help-popup,
+.chart-toolbar label:focus-within .help-popup,
+.quantile-help:hover .help-popup,
+.quantile-help:focus-within .help-popup {
+  display: block;
 }
 </style>

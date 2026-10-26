@@ -150,7 +150,8 @@ try {
   await page.getByLabel('Commodity series').selectOption('1')
   await page.getByLabel('Window around shipment date').selectOption('7')
   await page.getByRole('button', { name: 'Analyze prices' }).click()
-  await page.getByText('5 quotations analyzed.').waitFor()
+  await page.getByLabel('Show quantiles', { exact: true }).waitFor()
+  assert.equal(await page.getByText('5 quotations analyzed.').count(), 0)
   assert.equal(metadataRequests, 1)
   assert.equal(await page.getByLabel('Show commodity price').isChecked(), false)
   assert.equal(await page.getByLabel('Show freight price').isChecked(), false)
@@ -164,6 +165,32 @@ try {
 
   await mkdir(new URL('../artifacts/', import.meta.url), { recursive: true })
   await page.screenshot({ path: outputPath.pathname, fullPage: true })
+  const labels = page.locator('.quantile-label')
+  assert.equal(await labels.count(), 5)
+  const boxes = await labels.evaluateAll((elements) => elements.map((el) => {
+    const box = el.getBoundingClientRect()
+    return { top: box.top, bottom: box.bottom, left: box.left, right: box.right }
+  }))
+  for (let i = 1; i < boxes.length; i += 1) assert.ok(boxes[i].top >= boxes[i - 1].bottom)
+  const chartBox = await page.locator('.chart').boundingBox()
+  assert.ok(boxes.every((box) => box.left >= chartBox.x + chartBox.width - 170))
+  for (const name of ['Q05', 'Q25', 'Q50', 'Q75', 'Q95']) {
+    await page.getByRole('button', { name: 'Explain ' + name, exact: true }).hover()
+    assert.ok(await page.getByRole('tooltip').filter({ hasText: 'percent of historical values below' }).filter({ visible: true }).count())
+  }
+  await page.screenshot({ path: new URL('../artifacts/quantile-help.png', import.meta.url).pathname, fullPage: true })
+  for (const name of ['Show commodity price', 'Show freight price', 'Show differences (%)', 'Show quantiles']) {
+    await page.getByLabel(name, { exact: true }).hover()
+    assert.equal(await page.getByLabel(name, { exact: true }).locator('..').getByRole('tooltip').isVisible(), true)
+  }
+  await page.screenshot({ path: new URL('../artifacts/layer-help.png', import.meta.url).pathname, fullPage: true })
+  await page.getByLabel('Show quantiles', { exact: true }).uncheck()
+  assert.equal(await labels.count(), 0)
+  await page.getByLabel('Show quantiles', { exact: true }).check()
+  await page.setViewportSize({ width: 768, height: 1200 })
+  await page.waitForTimeout(400)
+  await page.mouse.move(0, 0)
+  await page.screenshot({ path: new URL('../artifacts/quantiles-narrow.png', import.meta.url).pathname, fullPage: true })
   console.log(`Screenshot saved to ${outputPath.pathname}`)
 } finally {
   await browser?.close()
