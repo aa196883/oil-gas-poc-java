@@ -1,6 +1,7 @@
 package com.semsoft.poc;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -44,11 +45,12 @@ public class AnalysisService {
         Map<Double, BigDecimal> result = new LinkedHashMap<>();
 
         for (double q : List.of(0.05, 0.25, 0.50, 0.75, 0.95)) {
-            double position = (sorted.size() - 1) * q;
-            int lower = (int) Math.floor(position);
-            int upper = (int) Math.ceil(position);
+            BigDecimal position = BigDecimal.valueOf(q)
+                .multiply(BigDecimal.valueOf(sorted.size() - 1L));
+            int lower = position.setScale(0, RoundingMode.FLOOR).intValueExact();
+            int upper = position.setScale(0, RoundingMode.CEILING).intValueExact();
 
-            BigDecimal weight = BigDecimal.valueOf(position - lower);
+            BigDecimal weight = position.subtract(BigDecimal.valueOf(lower));
 
             BigDecimal value = sorted.get(lower)
                 .add(sorted.get(upper).subtract(sorted.get(lower)).multiply(weight));

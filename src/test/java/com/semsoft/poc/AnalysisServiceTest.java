@@ -31,6 +31,6 @@ class AnalysisServiceTest {
         assertEquals(0, new BigDecimal("20.0").compareTo(result.get(0.25)));
         assertEquals(0, new BigDecimal("30.0").compareTo(result.get(0.50)));
         assertEquals(0, new BigDecimal("40.0").compareTo(result.get(0.75)));
-        assertEquals(0, new BigDecimal("47.9999999999999980").compareTo(result.get(0.95)));
+        assertEquals(0, new BigDecimal("48.0").compareTo(result.get(0.95)));
     }
 }
