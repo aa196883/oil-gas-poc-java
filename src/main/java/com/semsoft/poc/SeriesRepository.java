@@ -105,6 +105,12 @@ public class SeriesRepository {
         return count != null && count > 0;
     }
 
+    public boolean isFreight(long seriesId) {
+        return Boolean.TRUE.equals(jdbc.queryForObject(
+            "SELECT is_fret FROM metadata WHERE id = ?", Boolean.class, seriesId
+        ));
+    }
+
     public Optional<String> findBenchmarkUnit(long seriesId) {
         String sql = "SELECT unit FROM metadata WHERE id = ?";
 

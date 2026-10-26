@@ -49,6 +49,8 @@ public class SeriesRepositoryTest {
                    (1001, 'test-freight', 'test-series-1001', TRUE, 'POD', 'Europe')
             """);
 
+        assertFalse(repository.isFreight(1000L));
+        assertTrue(repository.isFreight(1001L));
         List<SeriesSummary> series = repository.findAll();
         assertEquals("POL", series.stream().filter(item -> item.id() == 1000L).findFirst().orElseThrow().logic());
         assertEquals("POD", series.stream().filter(item -> item.id() == 1001L).findFirst().orElseThrow().logic());

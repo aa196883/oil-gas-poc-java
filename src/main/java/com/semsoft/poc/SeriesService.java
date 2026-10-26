@@ -44,7 +44,9 @@ public class SeriesService {
             .orElseThrow(() -> new SeriesNotFoundException(seriesId));
         String family = repository.findBenchmarkFamily(seriesId)
             .orElseThrow(() -> new SeriesNotFoundException(seriesId));
-        BigDecimal nativeFactor = converter.getCommodityFactor(nativeUnit, family);
+        BigDecimal nativeFactor = repository.isFreight(seriesId)
+            ? converter.getFreightFactor(nativeUnit, family, repository.findBenchmarkZone(seriesId).orElse(null))
+            : converter.getCommodityFactor(nativeUnit, family);
         BigDecimal requestedFactor = converter.getCommodityFactor(unit, family);
 
         return repository.findPrices(seriesId, start, end).stream()
