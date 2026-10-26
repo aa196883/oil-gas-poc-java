@@ -15,6 +15,9 @@ const chartElement = ref(null)
 const showDeltas = ref(true)
 const showCommodityPrices = ref(false)
 const showFreightPrices = ref(false)
+const showQuantiles = ref(false)
+
+const quantileLevels = [0.05, 0.25, 0.5, 0.75, 0.95]
 
 let chart = null
 
@@ -27,6 +30,22 @@ function deltaColor(delta) {
   const t = (value - 5) / 10
 
   return echarts.color.lerp(t, ['#22c55e', '#f59e0b', '#ef4444'])
+}
+
+function computeQuantiles(prices) {
+  const sorted = prices.map((point) => Number(point.price)).sort((a, b) => a - b)
+
+  return Object.fromEntries(
+    quantileLevels.map((quantile) => {
+      const position = (sorted.length - 1) * quantile
+      const lower = Math.floor(position)
+      const upper = Math.ceil(position)
+      const weight = position - lower
+      const value = sorted[lower] + (sorted[upper] - sorted[lower]) * weight
+
+      return [quantile, value]
+    }),
+  )
 }
 
 function updateChart() {
@@ -57,12 +76,14 @@ function updateChart() {
     price: Number(point.price),
   }))
   const hasFreightBreakdown = commodityPoints.length > 0 && freightPoints.length > 0
+  const quantiles = computeQuantiles(props.prices)
 
   const values = [
     reference,
     ...points.map((point) => point.price),
     ...(showCommodityPrices.value ? commodityPoints.map((point) => point.price) : []),
     ...(showFreightPrices.value ? freightPoints.map((point) => point.price) : []),
+    ...(showQuantiles.value ? Object.values(quantiles) : []),
   ]
   const min = Math.min(...values)
   const max = Math.max(...values)
@@ -214,6 +235,52 @@ function updateChart() {
           ? freightPoints.map((point) => [point.time, point.price])
           : [],
       },
+      {
+        name: 'Quantiles',
+        type: 'line',
+        silent: true,
+        symbol: 'none',
+        data: [],
+        markArea: showQuantiles.value
+          ? {
+              silent: true,
+              animation: false,
+              label: { show: false },
+              data: [
+                [
+                  { yAxis: quantiles[0.05], itemStyle: { color: 'rgba(245, 158, 11, 0.09)' } },
+                  { yAxis: quantiles[0.25] },
+                ],
+                [
+                  { yAxis: quantiles[0.25], itemStyle: { color: 'rgba(34, 197, 94, 0.09)' } },
+                  { yAxis: quantiles[0.75] },
+                ],
+                [
+                  { yAxis: quantiles[0.75], itemStyle: { color: 'rgba(245, 158, 11, 0.09)' } },
+                  { yAxis: quantiles[0.95] },
+                ],
+              ],
+            }
+          : undefined,
+        markLine: showQuantiles.value
+          ? {
+              silent: true,
+              symbol: 'none',
+              animation: false,
+              label: {
+                show: true,
+                position: 'insideStartTop',
+                color: '#64748b',
+                formatter: ({ name, value }) => name + ': ' + Number(value).toFixed(2),
+              },
+              lineStyle: { color: '#94a3b8', width: 1, type: 'dashed' },
+              data: quantileLevels.map((quantile) => ({
+                name: 'Q' + String(quantile * 100).padStart(2, '0'),
+                yAxis: quantiles[quantile],
+              })),
+            }
+          : undefined,
+      },
     ],
   }
 
@@ -246,6 +313,7 @@ watch(
     showDeltas.value,
     showCommodityPrices.value,
     showFreightPrices.value,
+    showQuantiles.value,
   ],
   updateChart,
 )
@@ -265,6 +333,10 @@ watch(
       <label>
         <input v-model="showDeltas" type="checkbox" />
         Show differences (%)
+      </label>
+      <label>
+        <input v-model="showQuantiles" type="checkbox" />
+        Show quantiles
       </label>
     </div>
 
