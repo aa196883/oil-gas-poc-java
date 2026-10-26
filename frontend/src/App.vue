@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import AnalysisParameters from './components/AnalysisParameters.vue'
 import AnalysisResults from './components/AnalysisResults.vue'
 import OperationContext from './components/OperationContext.vue'
@@ -9,6 +9,7 @@ const loading = ref(false)
 const error = ref(null)
 const operation = ref({
   commodity: '',
+  logic: 'POL',
   incoterms: 'FOB',
   origin: 'Oman',
   destination: 'France',
@@ -37,6 +38,15 @@ const families = computed(() =>
   [
     ...new Set(commoditySeries.value.map((item) => item.family).filter((family) => family?.trim())),
   ].sort(),
+)
+watch(
+  () => operation.value.commodity,
+  (family) => {
+    operation.value.logic =
+      commoditySeries.value.find(
+        (item) => item.family === family && ['POL', 'POD'].includes(item.logic),
+      )?.logic ?? 'POL'
+  },
 )
 const analyzing = ref(false)
 const analysisError = ref(null)

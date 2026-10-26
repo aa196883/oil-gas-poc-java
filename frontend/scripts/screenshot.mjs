@@ -41,10 +41,10 @@ try {
     return route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify([
-        { id: 1, benchmarkId: 'BRENT', provider: 'Platts', unit: 'USD/MT', family: 'Crude Oil (Brut)', isFret: false },
+        { id: 1, benchmarkId: 'BRENT', provider: 'Platts', unit: 'USD/MT', family: 'Crude Oil (Brut)', logic: 'POL', isFret: false },
         { id: 2, benchmarkId: 'DUBAI', provider: 'Argus', unit: 'USD/BBL', family: 'Crude Oil (Brut)', isFret: false },
         { id: 3, benchmarkId: 'WTI', provider: 'Argus', unit: 'USD/BBL', family: null, isFret: false },
-        { id: 4, benchmarkId: 'Unavailable', provider: null, unit: 'EUR/MWh', family: 'Jet Fuel', isFret: false },
+        { id: 4, benchmarkId: 'Unavailable', provider: null, unit: 'EUR/MWh', family: 'Jet Fuel', logic: 'POD', isFret: false },
         { id: 5, benchmarkId: 'FREIGHT', provider: 'Baltic', unit: 'USD/MT', family: 'Freight', isFret: true },
       ]),
     })
@@ -125,7 +125,16 @@ try {
   })
 
   await page.goto(baseUrl)
+  await page.getByLabel('Commodity').first().selectOption('Crude Oil (Brut)')
+  assert.equal(await page.getByLabel('Shipment Price Logistic').inputValue(), 'POL')
   await page.getByLabel('Commodity').first().selectOption('Jet Fuel')
+  assert.equal(await page.getByLabel('Shipment Price Logistic').inputValue(), 'POD')
+  await page.getByLabel('Shipment Price Logistic').selectOption('POL')
+  await page.getByLabel('Country of origin').fill('Oman')
+  assert.equal(await page.getByLabel('Shipment Price Logistic').inputValue(), 'POL')
+  await page.getByLabel('Commodity').first().selectOption('Crude Oil (Brut)')
+  await page.getByLabel('Commodity').first().selectOption('Jet Fuel')
+  assert.equal(await page.getByLabel('Shipment Price Logistic').inputValue(), 'POD')
   assert.deepEqual(
     await page.getByLabel('Commodity').first().locator('option').allTextContents(),
     ['Select a commodity', 'Crude Oil (Brut)', 'Jet Fuel'],
@@ -133,7 +142,7 @@ try {
   await page.getByLabel('Price unit', { exact: true }).selectOption('USD')
   await page.getByLabel('Quantity unit', { exact: true }).selectOption('BBL')
   assert.deepEqual(await page.getByLabel('Price unit', { exact: true }).locator('option').allTextContents(), ['EUR', 'USD'])
-  assert.deepEqual(await page.getByLabel('Quantity unit', { exact: true }).locator('option').allTextContents(), ['MWh', 'BBL', 'MT'])
+  assert.deepEqual(await page.getByLabel('Quantity unit', { exact: true }).locator('option').allTextContents(), ['MT', 'MWh', 'BBL'])
   await page.getByLabel('Price unit', { exact: true }).selectOption('EUR')
   assert.equal(await page.getByLabel('Quantity unit', { exact: true }).inputValue(), 'BBL')
   await page.getByLabel('Price unit', { exact: true }).selectOption('USD')

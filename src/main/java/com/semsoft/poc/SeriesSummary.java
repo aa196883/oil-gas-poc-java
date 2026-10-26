@@ -29,6 +29,9 @@ public record SeriesSummary(
     String family,
 
     @Schema(description = "Whether the series contains freight quotations", example = "false")
-    boolean isFret
+    boolean isFret,
+
+    @Schema(description = "Shipment price logistic: POL or POD", example = "POL")
+    String logic
 
 ) {}

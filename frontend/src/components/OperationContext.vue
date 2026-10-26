@@ -41,6 +41,13 @@ function update(field, value) {
         </select>
       </label>
       <label class="field">
+        Shipment Price Logistic
+        <select :value="modelValue.logic" @change="update('logic', $event.target.value)">
+          <option value="POL">Port of Loading (POL)</option>
+          <option value="POD">Port of Discharge (POD)</option>
+        </select>
+      </label>
+      <label class="field">
         Incoterms
         <select :value="modelValue.incoterms" @change="update('incoterms', $event.target.value)">
           <option
