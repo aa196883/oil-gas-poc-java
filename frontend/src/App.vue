@@ -5,6 +5,7 @@ import AnalysisResults from './components/AnalysisResults.vue'
 import OperationContext from './components/OperationContext.vue'
 
 const series = ref([])
+const countries = ref([])
 const loading = ref(false)
 const error = ref(null)
 const operation = ref({
@@ -55,9 +56,14 @@ async function loadSeries() {
   loading.value = true
   error.value = null
   try {
-    const response = await fetch('/api/series')
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    series.value = await response.json()
+    const [seriesResponse, countriesResponse] = await Promise.all([
+      fetch('/api/series'),
+      fetch('/api/geography/countries'),
+    ])
+    if (!seriesResponse.ok) throw new Error(`HTTP ${seriesResponse.status}`)
+    if (!countriesResponse.ok) throw new Error(`HTTP ${countriesResponse.status}`)
+    series.value = await seriesResponse.json()
+    countries.value = await countriesResponse.json()
     operation.value.unit = units.value.includes('USD/MT') ? 'USD/MT' : (units.value[0] ?? '')
     operation.value.commodity = families.value[0] ?? ''
   } catch (err) {
@@ -162,7 +168,12 @@ onMounted(loadSeries)
       <h1>Price consistency analysis</h1>
       <p>Compare declared prices with market quotations.</p>
     </header>
-    <OperationContext v-model="operation" :units="units" :families="families" />
+    <OperationContext
+      v-model="operation"
+      :units="units"
+      :families="families"
+      :countries="countries"
+    />
     <AnalysisParameters
       v-model:selected-series-id="selectedSeriesId"
       v-model:window-days="windowDays"

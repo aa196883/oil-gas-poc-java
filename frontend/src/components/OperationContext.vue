@@ -1,9 +1,10 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 const props = defineProps({
   modelValue: { type: Object, required: true },
   units: { type: Array, required: true },
   families: { type: Array, required: true },
+  countries: { type: Array, required: true },
 })
 const availableUnits = computed(() => props.units.filter((unit) => unit.split('/').length === 2))
 const priceUnits = computed(() => [
@@ -12,6 +13,23 @@ const priceUnits = computed(() => [
 const quantityUnits = computed(() => [
   ...new Set(['MT', ...availableUnits.value.map((unit) => unit.split('/')[1])]),
 ])
+const activeCountryField = ref(null)
+
+function matchingCountries(value) {
+  const query = value.trim().toLocaleLowerCase()
+  return props.countries.filter((country) => country.toLocaleLowerCase().includes(query))
+}
+
+function selectCountry(field, country) {
+  update(field, country)
+  activeCountryField.value = null
+}
+
+function closeCountryList(field) {
+  setTimeout(() => {
+    if (activeCountryField.value === field) activeCountryField.value = null
+  })
+}
 
 function updateUnit(part, value) {
   const parts = props.modelValue.unit.split('/')
@@ -59,22 +77,54 @@ function update(field, value) {
           </option>
         </select>
       </label>
-      <label class="field">
-        Country of origin
+      <div class="field country-field">
+        <label for="country-origin">Country of origin</label>
         <input
+          id="country-origin"
           :value="modelValue.origin"
           type="text"
+          role="combobox"
+          autocomplete="off"
+          aria-controls="origin-countries"
+          :aria-expanded="activeCountryField === 'origin'"
+          @focus="activeCountryField = 'origin'"
+          @blur="closeCountryList('origin')"
           @input="update('origin', $event.target.value)"
         />
-      </label>
-      <label class="field">
-        Country of destination
+        <ul v-if="activeCountryField === 'origin'" id="origin-countries" class="country-options">
+          <li v-for="country in matchingCountries(modelValue.origin)" :key="country">
+            <button type="button" @click="selectCountry('origin', country)">
+              {{ country }}
+            </button>
+          </li>
+        </ul>
+      </div>
+      <div class="field country-field">
+        <label for="country-destination">Country of destination</label>
         <input
+          id="country-destination"
           :value="modelValue.destination"
           type="text"
+          role="combobox"
+          autocomplete="off"
+          aria-controls="destination-countries"
+          :aria-expanded="activeCountryField === 'destination'"
+          @focus="activeCountryField = 'destination'"
+          @blur="closeCountryList('destination')"
           @input="update('destination', $event.target.value)"
         />
-      </label>
+        <ul
+          v-if="activeCountryField === 'destination'"
+          id="destination-countries"
+          class="country-options"
+        >
+          <li v-for="country in matchingCountries(modelValue.destination)" :key="country">
+            <button type="button" @click="selectCountry('destination', country)">
+              {{ country }}
+            </button>
+          </li>
+        </ul>
+      </div>
       <label class="field">
         Shipped on board date
         <input
@@ -130,6 +180,39 @@ function update(field, value) {
 </template>
 
 <style scoped>
+.country-field {
+  position: relative;
+}
+.country-options {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  z-index: 20;
+  max-height: 220px;
+  margin: 4px 0 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: white;
+  box-shadow: 0 6px 18px #0f172a1f;
+}
+.country-options button {
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.country-options button:hover,
+.country-options button:focus {
+  background: #eff6ff;
+}
 .amounts-row {
   grid-column: 1 / -1;
   display: grid;
