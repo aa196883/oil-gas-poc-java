@@ -23,13 +23,19 @@ const selectedSeriesId = ref(null)
 const windowDays = ref(15)
 const deltas = ref([])
 const prices = ref([])
+const commodityPrices = ref([])
+const freightPrices = ref([])
 const resultReferencePrice = ref(0)
 const resultUnit = ref('')
 const units = computed(() =>
-  [...new Set(commoditySeries.value.map((item) => item.unit).filter((unit) => unit?.trim()))].sort(),
+  [
+    ...new Set(commoditySeries.value.map((item) => item.unit).filter((unit) => unit?.trim())),
+  ].sort(),
 )
 const families = computed(() =>
-  [...new Set(commoditySeries.value.map((item) => item.family).filter((family) => family?.trim()))].sort(),
+  [
+    ...new Set(commoditySeries.value.map((item) => item.family).filter((family) => family?.trim())),
+  ].sort(),
 )
 const analyzing = ref(false)
 const analysisError = ref(null)
@@ -65,6 +71,8 @@ async function analyze() {
   analysisError.value = null
   deltas.value = []
   prices.value = []
+  commodityPrices.value = []
+  freightPrices.value = []
   try {
     const { referencePrice, unit } = operation.value
     const params = new URLSearchParams({
@@ -75,23 +83,43 @@ async function analyze() {
     const includeFreight =
       (operation.value.incoterms === 'CFR' || operation.value.incoterms === 'CIF') &&
       selectedFretSeriesId.value !== null
-    if (includeFreight) params.set('freightId', selectedFretSeriesId.value)
     const deltaParams = new URLSearchParams(params)
     deltaParams.set('referencePrice', referencePrice)
-    const priceEndpoint = includeFreight ? 'prices-with-freight' : 'prices'
-    const deltaEndpoint = includeFreight ? 'deltas-with-freight' : 'deltas'
-    const responses = await Promise.all([
-      fetch(`/api/series/${selectedSeriesId.value}/${priceEndpoint}?${params}`),
-      fetch("/api/series/" + selectedSeriesId.value + "/" + deltaEndpoint + "?" + deltaParams),
-    ])
+
+    let responses
+    if (includeFreight) {
+      const freightParams = new URLSearchParams(params)
+      freightParams.set('freightId', selectedFretSeriesId.value)
+      deltaParams.set('freightId', selectedFretSeriesId.value)
+      responses = await Promise.all([
+        fetch(`/api/series/${selectedSeriesId.value}/prices-with-freight?${freightParams}`),
+        fetch('/api/series/' + selectedSeriesId.value + '/prices?' + params),
+        fetch('/api/series/' + selectedFretSeriesId.value + '/prices?' + params),
+        fetch('/api/series/' + selectedSeriesId.value + '/deltas-with-freight?' + deltaParams),
+      ])
+    } else {
+      responses = await Promise.all([
+        fetch(`/api/series/${selectedSeriesId.value}/prices?${params}`),
+        fetch(`/api/series/${selectedSeriesId.value}/deltas?${deltaParams}`),
+      ])
+    }
+
     for (const response of responses) {
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
     }
-    const [pricePoints, deltaPoints] = await Promise.all(
-      responses.map((response) => response.json()),
-    )
-    prices.value = pricePoints
-    deltas.value = deltaPoints
+    const payloads = await Promise.all(responses.map((response) => response.json()))
+
+    if (includeFreight) {
+      const [pricePoints, commodityPoints, freightPoints, deltaPoints] = payloads
+      prices.value = pricePoints
+      commodityPrices.value = commodityPoints
+      freightPrices.value = freightPoints
+      deltas.value = deltaPoints
+    } else {
+      const [pricePoints, deltaPoints] = payloads
+      prices.value = pricePoints
+      deltas.value = deltaPoints
+    }
     resultReferencePrice.value = referencePrice
     resultUnit.value = unit
   } catch (err) {
@@ -128,6 +156,8 @@ onMounted(loadSeries)
     <AnalysisResults
       :deltas="deltas"
       :prices="prices"
+      :commodity-prices="commodityPrices"
+      :freight-prices="freightPrices"
       :reference-price="resultReferencePrice"
       :unit="resultUnit"
       :analyzing="analyzing"

@@ -5,12 +5,16 @@ import * as echarts from 'echarts'
 const props = defineProps({
   deltas: { type: Array, required: true },
   prices: { type: Array, required: true },
+  commodityPrices: { type: Array, required: true },
+  freightPrices: { type: Array, required: true },
   unit: { type: String, required: true },
   referencePrice: { type: Number, required: true },
 })
 
 const chartElement = ref(null)
 const showDeltas = ref(true)
+const showCommodityPrices = ref(false)
+const showFreightPrices = ref(false)
 
 let chart = null
 
@@ -42,7 +46,24 @@ function updateChart() {
     }
   })
 
-  const values = [reference, ...points.map((p) => p.price)]
+  const commodityPoints = props.commodityPrices.map((point) => ({
+    date: point.date,
+    time: Date.parse(point.date + 'T12:00:00Z'),
+    price: Number(point.price),
+  }))
+  const freightPoints = props.freightPrices.map((point) => ({
+    date: point.date,
+    time: Date.parse(point.date + 'T12:00:00Z'),
+    price: Number(point.price),
+  }))
+  const hasFreightBreakdown = commodityPoints.length > 0 && freightPoints.length > 0
+
+  const values = [
+    reference,
+    ...points.map((point) => point.price),
+    ...(showCommodityPrices.value ? commodityPoints.map((point) => point.price) : []),
+    ...(showFreightPrices.value ? freightPoints.map((point) => point.price) : []),
+  ]
   const min = Math.min(...values)
   const max = Math.max(...values)
   const padding = Math.max((max - min) * 0.15, Math.abs(reference) * 0.01, 1)
@@ -63,12 +84,22 @@ function updateChart() {
         const point = points.find((p) => p.time === params[0]?.value?.[0])
         if (!point) return ''
 
-        return `
-          <strong>${point.date}</strong><br/>
-          Market price: ${point.price.toFixed(2)} ${props.unit}<br/>
-          Declared price: ${reference.toFixed(2)} ${props.unit}<br/>
-          Difference: ${point.delta > 0 ? '+' : ''}${point.delta.toFixed(2)} %
-        `
+        const commodity = commodityPoints.find((p) => p.time === point.time)
+        const freight = freightPoints.find((p) => p.time === point.time)
+        const marketLabel = hasFreightBreakdown ? 'Price with freight' : 'Market price'
+        const lines = [
+          '<strong>' + point.date + '</strong><br/>',
+          marketLabel + ': ' + point.price.toFixed(2) + ' ' + props.unit + '<br/>',
+        ]
+        if (hasFreightBreakdown && showCommodityPrices.value) {
+          lines.push('Commodity price: ' + commodity.price.toFixed(2) + ' ' + props.unit + '<br/>')
+        }
+        if (hasFreightBreakdown && showFreightPrices.value) {
+          lines.push('Freight price: ' + freight.price.toFixed(2) + ' ' + props.unit + '<br/>')
+        }
+        lines.push('Declared price: ' + reference.toFixed(2) + ' ' + props.unit + '<br/>')
+        lines.push('Difference: ' + (point.delta > 0 ? '+' : '') + point.delta.toFixed(2) + ' %')
+        return lines.join('')
       },
     },
 
@@ -83,7 +114,7 @@ function updateChart() {
       type: 'value',
       name: props.unit,
       nameTextStyle: { color: '#64748b' },
-      min: min - padding,
+      min: Math.floor(min - padding),
       max: Math.ceil(max + padding),
       axisLabel: { color: '#64748b' },
       splitLine: {
@@ -127,7 +158,7 @@ function updateChart() {
       },
 
       {
-        name: 'Market price',
+        name: hasFreightBreakdown ? 'Price with freight' : 'Market price',
         type: 'line',
         z: 3,
         smooth: false,
@@ -161,6 +192,28 @@ function updateChart() {
           data: [{ yAxis: reference }],
         },
       },
+      {
+        name: 'Commodity price',
+        type: 'line',
+        z: 2,
+        showSymbol: false,
+        lineStyle: { color: '#7c3aed', width: 2 },
+        itemStyle: { color: '#7c3aed' },
+        data: showCommodityPrices.value
+          ? commodityPoints.map((point) => [point.time, point.price])
+          : [],
+      },
+      {
+        name: 'Freight price',
+        type: 'line',
+        z: 2,
+        showSymbol: false,
+        lineStyle: { color: '#f59e0b', width: 2 },
+        itemStyle: { color: '#f59e0b' },
+        data: showFreightPrices.value
+          ? freightPoints.map((point) => [point.time, point.price])
+          : [],
+      },
     ],
   }
 
@@ -183,7 +236,17 @@ onBeforeUnmount(() => {
 })
 
 watch(
-  () => [props.deltas, props.prices, props.referencePrice, props.unit, showDeltas.value],
+  () => [
+    props.deltas,
+    props.prices,
+    props.commodityPrices,
+    props.freightPrices,
+    props.referencePrice,
+    props.unit,
+    showDeltas.value,
+    showCommodityPrices.value,
+    showFreightPrices.value,
+  ],
   updateChart,
 )
 </script>
@@ -191,6 +254,14 @@ watch(
 <template>
   <div class="chart-container">
     <div class="chart-toolbar">
+      <label v-if="commodityPrices.length > 0">
+        <input v-model="showCommodityPrices" type="checkbox" />
+        Show commodity price
+      </label>
+      <label v-if="freightPrices.length > 0">
+        <input v-model="showFreightPrices" type="checkbox" />
+        Show freight price
+      </label>
       <label>
         <input v-model="showDeltas" type="checkbox" />
         Show differences (%)
@@ -208,7 +279,9 @@ watch(
 
 .chart-toolbar {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 16px;
   margin-bottom: 12px;
 }
 

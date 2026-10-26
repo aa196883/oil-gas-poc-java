@@ -64,6 +64,48 @@ try {
       ]),
     })
   })
+  await page.route("**/api/series/*/prices?*", (route) => {
+    const url = new URL(route.request().url())
+    if (url.pathname.endsWith("/prices-with-freight")) return route.fallback()
+    assert.equal(url.searchParams.get("freightId"), null)
+    assert.equal(url.searchParams.get("unit"), "USD/BBL")
+    const prices = url.pathname === "/api/series/5/prices"
+      ? [
+          { date: "2026-10-08", price: 5 },
+          { date: "2026-10-11", price: 6 },
+          { date: "2026-10-15", price: 6 },
+          { date: "2026-10-18", price: 6 },
+          { date: "2026-10-22", price: 6 },
+        ]
+      : [
+          { date: "2026-10-08", price: 63.85 },
+          { date: "2026-10-11", price: 67.2 },
+          { date: "2026-10-15", price: 70.35 },
+          { date: "2026-10-18", price: 74.7 },
+          { date: "2026-10-22", price: 81.075 },
+        ]
+    assert.ok(["/api/series/1/prices", "/api/series/5/prices"].includes(url.pathname))
+    return route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(prices),
+    })
+  })
+
+  await page.route("**/api/series/5/prices?*", (route) => {
+    const url = new URL(route.request().url())
+    assert.equal(url.searchParams.get("unit"), "USD/BBL")
+    return route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify([
+        { date: "2026-10-08", price: 5 },
+        { date: "2026-10-11", price: 6 },
+        { date: "2026-10-15", price: 6 },
+        { date: "2026-10-18", price: 6 },
+        { date: "2026-10-22", price: 6 },
+      ]),
+    })
+  })
+
   await page.route('**/api/series/*/deltas-with-freight?*', (route) => {
     assert.equal(new URL(route.request().url()).pathname, '/api/series/1/deltas-with-freight')
     const params = new URL(route.request().url()).searchParams
@@ -110,6 +152,11 @@ try {
   await page.getByRole('button', { name: 'Analyze prices' }).click()
   await page.getByText('5 quotations analyzed.').waitFor()
   assert.equal(metadataRequests, 1)
+  assert.equal(await page.getByLabel('Show commodity price').isChecked(), false)
+  assert.equal(await page.getByLabel('Show freight price').isChecked(), false)
+  await page.getByLabel('Show commodity price').check()
+  await page.getByLabel('Show freight price').check()
+  await page.waitForTimeout(400)
   await page.getByLabel('Show differences (%)').uncheck()
   await page.getByLabel('Show differences (%)').check()
 

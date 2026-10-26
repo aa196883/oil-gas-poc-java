@@ -3,6 +3,8 @@ import PriceChart from './PriceChart.vue'
 defineProps({
   deltas: { type: Array, required: true },
   prices: { type: Array, required: true },
+  commodityPrices: { type: Array, required: true },
+  freightPrices: { type: Array, required: true },
   unit: { type: String, required: true },
   referencePrice: { type: Number, required: true },
   analyzing: { type: Boolean, required: true },
@@ -23,6 +25,8 @@ defineProps({
       <PriceChart
         :deltas="deltas"
         :prices="prices"
+        :commodity-prices="commodityPrices"
+        :freight-prices="freightPrices"
         :reference-price="referencePrice"
         :unit="unit"
       />

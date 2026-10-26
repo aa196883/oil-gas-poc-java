@@ -5,9 +5,7 @@ const props = defineProps({
   units: { type: Array, required: true },
   families: { type: Array, required: true },
 })
-const availableUnits = computed(() =>
-  [...new Set([...props.units, 'USD/MT'])]
-)
+const availableUnits = computed(() => [...new Set([...props.units, 'USD/MT'])])
 const emit = defineEmits(['update:modelValue'])
 
 function update(field, value) {
@@ -33,7 +31,11 @@ function update(field, value) {
       <label class="field">
         Incoterms
         <select :value="modelValue.incoterms" @change="update('incoterms', $event.target.value)">
-          <option v-for="incoterm in ['FAS', 'FOB', 'CFR', 'CIF']" :key="incoterm" :value="incoterm">
+          <option
+            v-for="incoterm in ['FAS', 'FOB', 'CFR', 'CIF']"
+            :key="incoterm"
+            :value="incoterm"
+          >
             {{ incoterm }}
           </option>
         </select>

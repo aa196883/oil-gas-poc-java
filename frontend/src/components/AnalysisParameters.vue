@@ -12,7 +12,12 @@ defineProps({
   endDate: { type: String, required: true },
   analyzing: { type: Boolean, required: true },
 })
-defineEmits(['update:selectedSeriesId', 'update:selectedFretSeriesId', 'update:windowDays', 'analyze'])
+defineEmits([
+  'update:selectedSeriesId',
+  'update:selectedFretSeriesId',
+  'update:windowDays',
+  'analyze',
+])
 </script>
 
 <template>
@@ -58,7 +63,12 @@ defineEmits(['update:selectedSeriesId', 'update:selectedFretSeriesId', 'update:w
     <p class="period">Analyzed period: {{ startDate }} to {{ endDate }}</p>
     <button
       type="button"
-      :disabled="selectedSeriesId === null || (showFret && selectedFretSeriesId === null) || analyzing || loading"
+      :disabled="
+        selectedSeriesId === null ||
+        (showFret && selectedFretSeriesId === null) ||
+        analyzing ||
+        loading
+      "
       @click="$emit('analyze')"
     >
       {{ analyzing ? 'Analyzing...' : 'Analyze prices' }}
