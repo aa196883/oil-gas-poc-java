@@ -5,6 +5,8 @@ const props = defineProps({
   units: { type: Array, required: true },
   families: { type: Array, required: true },
   countries: { type: Array, required: true },
+  applying: { type: Boolean, default: false },
+  contextError: { type: String, default: null },
 })
 const availableUnits = computed(() => props.units.filter((unit) => unit.split('/').length === 2))
 const priceUnits = computed(() => [
@@ -36,7 +38,7 @@ function updateUnit(part, value) {
   parts[part] = value
   update('unit', parts.join('/'))
 }
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'apply'])
 
 function update(field, value) {
   emit('update:modelValue', { ...props.modelValue, [field]: value })
@@ -176,10 +178,37 @@ function update(field, value) {
         </div>
       </div>
     </div>
+    <button
+      class="apply-context"
+      type="button"
+      :disabled="
+        applying ||
+        !modelValue.commodity ||
+        !(modelValue.logic === 'POL' ? modelValue.origin : modelValue.destination)
+      "
+      @click="emit('apply')"
+    >
+      {{ applying ? 'Applying...' : 'Apply Context' }}
+    </button>
+    <p v-if="contextError" class="error" role="alert">{{ contextError }}</p>
   </section>
 </template>
 
 <style scoped>
+.apply-context {
+  margin-top: 24px;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 6px;
+  background: #234b75;
+  color: white;
+  cursor: pointer;
+}
+.apply-context:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .country-field {
   position: relative;
 }

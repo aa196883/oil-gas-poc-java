@@ -19,8 +19,10 @@ public class GeographyService {
     );
 
     private final Map<String, JsonNode> countries;
+    private final SeriesService seriesService;
 
-    public GeographyService(JsonMapper mapper) throws IOException {
+    public GeographyService(JsonMapper mapper, SeriesService seriesService) throws IOException {
+        this.seriesService = seriesService;
         try (var input = new ClassPathResource("geography/countries.json").getInputStream()) {
             JsonNode json = mapper.readTree(input);
 
@@ -29,6 +31,23 @@ public class GeographyService {
                 countries.put(country.get("name").asText(), country);
             }
         }
+    }
+
+    public Optional<SeriesSummary> getBenchmark(String country, String family, boolean isFret) {
+        if (family == null || family.isBlank()) {
+            throw new IllegalArgumentException("Commodity family is required");
+        }
+        List<String> zones = getZones(country);
+        List<SeriesSummary> candidates = seriesService.getAllSeries().stream()
+            .filter(series -> family.equals(series.family()) && series.isFret() == isFret)
+            .toList();
+        for (String zone : zones) {
+            Optional<SeriesSummary> match = candidates.stream()
+                .filter(series -> zone.equals(series.zone()))
+                .min(Comparator.comparingLong(SeriesSummary::id));
+            if (match.isPresent()) return match;
+        }
+        return Optional.empty();
     }
 
     public List<String> getCountries() {
@@ -65,6 +84,7 @@ public class GeographyService {
             case "Asia" -> zones.add("Asie");
         }
 
+        if (!"Americas".equals(region)) zones.add("Reste du Monde");
         zones.add("Monde");
 
         return zones;

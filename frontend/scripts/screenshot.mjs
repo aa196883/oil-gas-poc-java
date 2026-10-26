@@ -36,6 +36,23 @@ try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1200 } })
   let metadataRequests = 0
   let countryRequests = 0
+  const benchmarkRequests = []
+  let failBenchmark = false
+  await page.route('**/api/geography/benchmark?*', (route) => {
+    const params = Object.fromEntries(new URL(route.request().url()).searchParams)
+    benchmarkRequests.push(params)
+    return route.fulfill({
+      status: failBenchmark ? 404 : 200,
+      contentType: 'application/json',
+      body: JSON.stringify(
+        failBenchmark
+          ? { message: 'No matching benchmark.' }
+          : {
+              id: params.isFret === 'true' ? 5 : params.country === 'Oman' ? 2 : 1,
+            },
+      ),
+    })
+  })
 
   await page.route('**/api/geography/countries', (route) => {
     countryRequests += 1
@@ -254,8 +271,44 @@ try {
       .evaluateAll((options) => options.map((option) => option.value)),
     ['', '5'],
   )
-  await page.getByLabel('Fret series').selectOption('5')
+  await page.getByLabel('Commodity').first().selectOption('Crude Oil (Brut)')
+  await page.getByLabel('Shipment Price Logistic').selectOption('POL')
+  await page.getByLabel('Incoterms').selectOption('FOB')
+  const apply = async () => {
+    await page.getByRole('button', { name: 'Apply Context', exact: true }).click()
+    await page.getByRole('button', { name: 'Apply Context', exact: true }).waitFor()
+  }
+  await apply()
+  assert.equal(await page.getByLabel('Commodity series').inputValue(), '2')
+  assert.deepEqual(benchmarkRequests.splice(0), [
+    { country: 'Oman', family: 'Crude Oil (Brut)', isFret: 'false' },
+  ])
   await page.getByLabel('Commodity series').selectOption('1')
+  assert.equal(await page.getByLabel('Commodity series').inputValue(), '1')
+  await page.getByLabel('Shipment Price Logistic').selectOption('POD')
+  await page.getByLabel('Incoterms').selectOption('CIF')
+  await apply()
+  assert.equal(await page.getByLabel('Commodity series').inputValue(), '1')
+  assert.equal(await page.getByLabel('Fret series').inputValue(), '5')
+  assert.deepEqual(
+    benchmarkRequests.splice(0).sort((a, b) => a.isFret.localeCompare(b.isFret)),
+    [
+      { country: 'France', family: 'Crude Oil (Brut)', isFret: 'false' },
+      { country: 'France', family: 'Crude Oil (Brut)', isFret: 'true' },
+    ],
+  )
+  failBenchmark = true
+  await apply()
+  await page.getByRole('alert').filter({ hasText: 'No matching benchmark.' }).waitFor()
+  assert.equal(await page.getByLabel('Commodity series').inputValue(), '1')
+  assert.equal(await page.getByLabel('Fret series').inputValue(), '5')
+  failBenchmark = false
+  await page.getByLabel('Incoterms').selectOption('FAS')
+  await apply()
+  await page.getByLabel('Incoterms').selectOption('CFR')
+  assert.equal(await page.getByLabel('Fret series').inputValue(), '')
+  await apply()
+  assert.equal(await page.getByLabel('Fret series').inputValue(), '5')
   assert.equal(
     await page.getByLabel('Commodity series').locator('option:checked').textContent(),
     'Crude Oil (Brut) — Europe — Platts — USD/MT',

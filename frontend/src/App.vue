@@ -51,6 +51,35 @@ watch(
 )
 const analyzing = ref(false)
 const analysisError = ref(null)
+const applyingContext = ref(false)
+const contextError = ref(null)
+
+async function applyContext() {
+  applyingContext.value = true
+  contextError.value = null
+  const { commodity, logic, origin, destination, incoterms } = operation.value
+  const country = logic === 'POL' ? origin : destination
+  const includeFreight = ['CFR', 'CIF'].includes(incoterms)
+  try {
+    const findBenchmark = async (isFret) => {
+      const params = new URLSearchParams({ country, family: commodity, isFret })
+      const response = await fetch('/api/geography/benchmark?' + params)
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.message || 'Could not find a benchmark.')
+      return result.id
+    }
+    const [commodityId, freightId] = await Promise.all([
+      findBenchmark(false),
+      includeFreight ? findBenchmark(true) : Promise.resolve(null),
+    ])
+    selectedSeriesId.value = commodityId
+    selectedFretSeriesId.value = freightId
+  } catch (err) {
+    contextError.value = err.message
+  } finally {
+    applyingContext.value = false
+  }
+}
 
 async function loadSeries() {
   loading.value = true
@@ -173,6 +202,9 @@ onMounted(loadSeries)
       :units="units"
       :families="families"
       :countries="countries"
+      :applying="applyingContext"
+      :context-error="contextError"
+      @apply="applyContext"
     />
     <AnalysisParameters
       v-model:selected-series-id="selectedSeriesId"
