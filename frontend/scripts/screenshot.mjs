@@ -44,7 +44,7 @@ try {
         { id: 1, benchmarkId: 'BRENT', provider: 'Platts', unit: 'USD/MT', family: 'Crude Oil (Brut)', isFret: false },
         { id: 2, benchmarkId: 'DUBAI', provider: 'Argus', unit: 'USD/BBL', family: 'Crude Oil (Brut)', isFret: false },
         { id: 3, benchmarkId: 'WTI', provider: 'Argus', unit: 'USD/BBL', family: null, isFret: false },
-        { id: 4, benchmarkId: 'Unavailable', provider: null, unit: null, family: 'Jet Fuel', isFret: false },
+        { id: 4, benchmarkId: 'Unavailable', provider: null, unit: 'EUR/MWh', family: 'Jet Fuel', isFret: false },
         { id: 5, benchmarkId: 'FREIGHT', provider: 'Baltic', unit: 'USD/MT', family: 'Freight', isFret: true },
       ]),
     })
@@ -130,9 +130,15 @@ try {
     await page.getByLabel('Commodity').first().locator('option').allTextContents(),
     ['Select a commodity', 'Crude Oil (Brut)', 'Jet Fuel'],
   )
-  await page.getByLabel('Declared price unit').selectOption('USD/BBL')
-  assert.equal(await page.getByLabel('Declared price unit').locator('option').count(), 3)
-  await page.getByLabel('Declared price', { exact: true }).fill('75')
+  await page.getByLabel('Price unit', { exact: true }).selectOption('USD')
+  await page.getByLabel('Quantity unit', { exact: true }).selectOption('BBL')
+  assert.deepEqual(await page.getByLabel('Price unit', { exact: true }).locator('option').allTextContents(), ['EUR', 'USD'])
+  assert.deepEqual(await page.getByLabel('Quantity unit', { exact: true }).locator('option').allTextContents(), ['MWh', 'BBL', 'MT'])
+  await page.getByLabel('Price unit', { exact: true }).selectOption('EUR')
+  assert.equal(await page.getByLabel('Quantity unit', { exact: true }).inputValue(), 'BBL')
+  await page.getByLabel('Price unit', { exact: true }).selectOption('USD')
+  await page.getByLabel('Declared price', { exact: true }).fill('750')
+  await page.getByLabel('Quantity', { exact: true }).fill('10')
   assert.equal(await page.getByLabel('Incoterms').inputValue(), 'FOB')
   assert.deepEqual(await page.getByLabel('Incoterms').locator('option').allTextContents(),
     ['FAS', 'FOB', 'CFR', 'CIF'])
@@ -149,6 +155,10 @@ try {
   await page.getByLabel('Fret series').selectOption('5')
   await page.getByLabel('Commodity series').selectOption('1')
   await page.getByLabel('Window around shipment date').selectOption('7')
+  await page.getByLabel('Quantity', { exact: true }).fill('0')
+  await page.getByRole('button', { name: 'Analyze prices' }).click()
+  await page.getByText('Enter a positive price and quantity.', { exact: true }).waitFor()
+  await page.getByLabel('Quantity', { exact: true }).fill('10')
   await page.getByRole('button', { name: 'Analyze prices' }).click()
   await page.getByLabel('Show quantiles', { exact: true }).waitFor()
   assert.equal(await page.getByText('5 quotations analyzed.').count(), 0)

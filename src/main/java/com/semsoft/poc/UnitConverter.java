@@ -45,16 +45,6 @@ public class UnitConverter {
             "Jet Fuel", new BigDecimal("330.96"),
             "GNL (LNG)", new BigDecimal("587.0490052403298")
         )),
-        Map.entry("US Cents/Gallon", Map.of(
-            "Crude Oil (Brut)", new BigDecimal("3.0786"),
-            "Gasoline (Essence)", new BigDecimal("3.507"),
-            "Gasoil / Diesel", new BigDecimal("3.1332"),
-            "GPL (Propane / Butane)", new BigDecimal("4.872"),
-            "Fuel Oil HSFO", new BigDecimal("2.667"),
-            "Fuel Oil VLSFO", new BigDecimal("2.667"),
-            "Jet Fuel", new BigDecimal("3.3096"),
-            "GNL (LNG)", new BigDecimal("5.870490052403298")
-        )),
         Map.entry("USD/MT", Map.of(
             "Crude Oil (Brut)", BigDecimal.ONE,
             "Gasoline (Essence)", BigDecimal.ONE,
@@ -75,15 +65,15 @@ public class UnitConverter {
             "Jet Fuel", new BigDecimal("41.62812792416089"),
             "GNL (LNG)", new BigDecimal("52")
         )),
-        Map.entry("EUR/MWh", Map.of(
-            "Crude Oil (Brut)", new BigDecimal("11.89166666666667").multiply(EUR_USD),
-            "Gasoline (Essence)", new BigDecimal("12.43055555555556").multiply(EUR_USD),
-            "Gasoil / Diesel", new BigDecimal("12.05").multiply(EUR_USD),
-            "GPL (Propane / Butane)", new BigDecimal("12.81944444444444").multiply(EUR_USD),
-            "Fuel Oil HSFO", new BigDecimal("11.54722222222222").multiply(EUR_USD),
-            "Fuel Oil VLSFO", new BigDecimal("11.54722222222222").multiply(EUR_USD),
-            "Jet Fuel", new BigDecimal("12.2").multiply(EUR_USD),
-            "GNL (LNG)", new BigDecimal("15.23969564895556").multiply(EUR_USD)
+        Map.entry("USD/MWh", Map.of(
+            "Crude Oil (Brut)", new BigDecimal("11.89166666666667"),
+            "Gasoline (Essence)", new BigDecimal("12.43055555555556"),
+            "Gasoil / Diesel", new BigDecimal("12.05"),
+            "GPL (Propane / Butane)", new BigDecimal("12.81944444444444"),
+            "Fuel Oil HSFO", new BigDecimal("11.54722222222222"),
+            "Fuel Oil VLSFO", new BigDecimal("11.54722222222222"),
+            "Jet Fuel", new BigDecimal("12.2"),
+            "GNL (LNG)", new BigDecimal("15.23969564895556")
         ))
     );
 
@@ -100,14 +90,23 @@ public class UnitConverter {
     );
 
     public BigDecimal getCommodityFactor(String unit, String family) {
-        Map<String, BigDecimal> familyFactors = unit == null ? null : COMMODITY_FACTORS.get(unit);
+        BigDecimal currencyFactor = BigDecimal.ONE;
+        String normalizedUnit = unit;
+        if (unit != null && unit.startsWith("EUR/")) {
+            currencyFactor = EUR_USD;
+            normalizedUnit = "USD/" + unit.substring(4);
+        } else if (unit != null && unit.startsWith("US Cents/")) {
+            currencyFactor = new BigDecimal("0.01");
+            normalizedUnit = "USD/" + unit.substring(9);
+        }
+        Map<String, BigDecimal> familyFactors = COMMODITY_FACTORS.get(normalizedUnit == null ? "" : normalizedUnit);
         BigDecimal factor = familyFactors == null || family == null ? null : familyFactors.get(family);
 
         if (factor == null) {
             throw new IllegalArgumentException("Unknown commodity conversion: " + unit + " / " + family);
         }
 
-        return factor;
+        return currencyFactor.multiply(factor);
     }
 
     public BigDecimal getFreightFactor(String unit, String family, String zone) {

@@ -14,6 +14,7 @@ const operation = ref({
   destination: 'France',
   shippedOnBoard: '2026-10-15',
   referencePrice: 550,
+  quantity: 1,
   unit: '',
 })
 const commoditySeries = computed(() => series.value.filter((item) => !item.isFret))
@@ -74,7 +75,20 @@ async function analyze() {
   commodityPrices.value = []
   freightPrices.value = []
   try {
-    const { referencePrice, unit } = operation.value
+    const { unit } = operation.value
+    const price = Number(operation.value.referencePrice)
+    const quantity = Number(operation.value.quantity)
+    const referencePrice = price / quantity
+    if (
+      !Number.isFinite(price) ||
+      price <= 0 ||
+      !Number.isFinite(quantity) ||
+      quantity <= 0 ||
+      !Number.isFinite(referencePrice) ||
+      referencePrice <= 0
+    ) {
+      throw new Error('Enter a positive price and quantity.')
+    }
     const params = new URLSearchParams({
       start: startDate.value,
       end: endDate.value,

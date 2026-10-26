@@ -11,6 +11,16 @@ public class UnitConverterTest {
     private final UnitConverter converter = new UnitConverter();
 
     @Test
+    void shouldConvertCrudeOilFromEurPerMtToUsdPerMt() {
+        BigDecimal factor = converter.getCommodityFactor("EUR/MT", "Crude Oil (Brut)");
+
+        assertEquals(0, new BigDecimal("1.12").compareTo(factor));
+        assertEquals(0, new BigDecimal("112.00").compareTo(
+            new BigDecimal("100").multiply(factor)
+        ));
+    }
+
+    @Test
     void shouldConvertWtiToUsdPerMt() {
         BigDecimal result = converter.getCommodityFactor("USD/BBL", "Crude Oil (Brut)").multiply(new BigDecimal("75.50"));
 
@@ -40,6 +50,27 @@ public class UnitConverterTest {
             IllegalArgumentException.class,
             () -> converter.getFreightFactor("USD/day", "GNL (LNG)", "unknown")
         );
+    }
+
+    @Test
+    void shouldCombineCurrencyAndQuantityFactorsForEveryFamily() {
+        for (String family : java.util.List.of("Crude Oil (Brut)", "Gasoline (Essence)",
+                "Gasoil / Diesel", "GPL (Propane / Butane)", "Fuel Oil HSFO",
+                "Fuel Oil VLSFO", "Jet Fuel", "GNL (LNG)")) {
+            for (String quantity : java.util.List.of("MT", "BBL", "Gallon", "MMBtu", "MWh")) {
+                BigDecimal usdFactor = converter.getCommodityFactor("USD/" + quantity, family);
+                assertEquals(0, usdFactor.multiply(new BigDecimal("1.12")).compareTo(
+                    converter.getCommodityFactor("EUR/" + quantity, family)));
+                assertEquals(0, usdFactor.multiply(new BigDecimal("0.01")).compareTo(
+                    converter.getCommodityFactor("US Cents/" + quantity, family)));
+            }
+        }
+        assertEquals(0, new BigDecimal("12.2").compareTo(
+            converter.getCommodityFactor("USD/MWh", "Jet Fuel")));
+        assertEquals(0, new BigDecimal("13.664").compareTo(
+            converter.getCommodityFactor("EUR/MWh", "Jet Fuel")));
+        assertEquals(0, new BigDecimal("8.2096").compareTo(
+            converter.getCommodityFactor("EUR/BBL", "Crude Oil (Brut)")));
     }
 
     @Test

@@ -5,7 +5,19 @@ const props = defineProps({
   units: { type: Array, required: true },
   families: { type: Array, required: true },
 })
-const availableUnits = computed(() => [...new Set([...props.units, 'USD/MT'])])
+const availableUnits = computed(() => props.units.filter((unit) => unit.split('/').length === 2))
+const priceUnits = computed(() => [
+  ...new Set(availableUnits.value.map((unit) => unit.split('/')[0])),
+])
+const quantityUnits = computed(() => [
+  ...new Set(['MT', ...availableUnits.value.map((unit) => unit.split('/')[1])]),
+])
+
+function updateUnit(part, value) {
+  const parts = props.modelValue.unit.split('/')
+  parts[part] = value
+  update('unit', parts.join('/'))
+}
 const emit = defineEmits(['update:modelValue'])
 
 function update(field, value) {
@@ -64,27 +76,80 @@ function update(field, value) {
           @input="update('shippedOnBoard', $event.target.value)"
         />
       </label>
-      <label class="field">
-        Declared price
-        <input
-          :value="modelValue.referencePrice"
-          type="number"
-          min="0.01"
-          step="any"
-          @input="update('referencePrice', Number($event.target.value))"
-        />
-      </label>
-      <label class="field">
-        Declared price unit
-        <select
-          :value="modelValue.unit"
-          :disabled="availableUnits.length === 0"
-          @change="update('unit', $event.target.value)"
-        >
-          <option value="" disabled>Select a unit</option>
-          <option v-for="unit in availableUnits" :key="unit" :value="unit">{{ unit }}</option>
-        </select>
-      </label>
+      <div class="amounts-row">
+        <div class="amount-field">
+          <label for="declared-price">Declared price</label>
+          <div class="amount-input">
+            <input
+              id="declared-price"
+              :value="modelValue.referencePrice"
+              type="text"
+              inputmode="decimal"
+              @input="update('referencePrice', $event.target.value)"
+            />
+            <select
+              aria-label="Price unit"
+              :value="modelValue.unit.split('/')[0]"
+              :disabled="priceUnits.length === 0"
+              @change="updateUnit(0, $event.target.value)"
+            >
+              <option v-for="unit in priceUnits" :key="unit" :value="unit">{{ unit }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="amount-field">
+          <label for="quantity">Quantity</label>
+          <div class="amount-input">
+            <input
+              id="quantity"
+              :value="modelValue.quantity"
+              type="text"
+              inputmode="decimal"
+              @input="update('quantity', $event.target.value)"
+            />
+            <select
+              aria-label="Quantity unit"
+              :value="modelValue.unit.split('/')[1]"
+              :disabled="quantityUnits.length === 0"
+              @change="updateUnit(1, $event.target.value)"
+            >
+              <option v-for="unit in quantityUnits" :key="unit" :value="unit">{{ unit }}</option>
+            </select>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 </template>
+
+<style scoped>
+.amounts-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+}
+.amount-field {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.amount-field > label {
+  font-size: 14px;
+  font-weight: 600;
+}
+.amount-input {
+  display: flex;
+  gap: 8px;
+}
+.amount-input input {
+  width: 100%;
+  min-width: 0;
+}
+.amount-input select {
+  width: auto;
+  max-width: 50%;
+  flex-shrink: 0;
+}
+</style>
