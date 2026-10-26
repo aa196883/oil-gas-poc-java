@@ -44,14 +44,16 @@ public class SeriesRepositoryTest {
     @Test
     void shouldRetrieveFreightFlag() {
         jdbc.update("""
-            INSERT INTO metadata (id, benchmark_id, series_id, is_fret, logic)
-            VALUES (1000, 'test-commodity', 'test-series-1000', FALSE, 'POL'),
-                   (1001, 'test-freight', 'test-series-1001', TRUE, 'POD')
+            INSERT INTO metadata (id, benchmark_id, series_id, is_fret, logic, zone)
+            VALUES (1000, 'test-commodity', 'test-series-1000', FALSE, 'POL', 'USA'),
+                   (1001, 'test-freight', 'test-series-1001', TRUE, 'POD', 'Europe')
             """);
 
         List<SeriesSummary> series = repository.findAll();
         assertEquals("POL", series.stream().filter(item -> item.id() == 1000L).findFirst().orElseThrow().logic());
         assertEquals("POD", series.stream().filter(item -> item.id() == 1001L).findFirst().orElseThrow().logic());
+        assertEquals("USA", series.stream().filter(item -> item.id() == 1000L).findFirst().orElseThrow().zone());
+        assertEquals("Europe", series.stream().filter(item -> item.id() == 1001L).findFirst().orElseThrow().zone());
         assertFalse(series.stream().filter(item -> item.id() == 1000L).findFirst().orElseThrow().isFret());
         assertTrue(series.stream().filter(item -> item.id() == 1001L).findFirst().orElseThrow().isFret());
     }

@@ -32,6 +32,9 @@ public record SeriesSummary(
     boolean isFret,
 
     @Schema(description = "Shipment price logistic: POL or POD", example = "POL")
-    String logic
+    String logic,
+
+    @Schema(description = "Geographical zone", example = "Europe")
+    String zone
 
 ) {}

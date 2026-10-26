@@ -32,7 +32,7 @@ defineEmits([
         >
           <option value="" disabled>Select a series</option>
           <option v-for="item in series" :key="item.id" :value="item.id">
-            {{ item.benchmarkId }} — {{ item.provider }} — {{ item.unit }}
+            {{ item.family }} — {{ item.zone }} — {{ item.provider }} — {{ item.unit }}
           </option>
         </select>
       </label>
@@ -44,7 +44,7 @@ defineEmits([
         >
           <option value="" disabled>Select a series</option>
           <option v-for="item in fretSeries" :key="item.id" :value="item.id">
-            {{ item.benchmarkId }} — {{ item.provider }} — {{ item.unit }}
+            {{ item.family }} — {{ item.zone }} — {{ item.provider }} — {{ item.unit }}
           </option>
         </select>
       </label>

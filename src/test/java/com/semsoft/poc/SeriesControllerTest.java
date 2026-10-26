@@ -28,8 +28,8 @@ class SeriesControllerTest {
         )).setControllerAdvice(new GlobalExceptionHandler()).build();
 
         when(repository.findAll()).thenReturn(List.of(
-            new SeriesSummary(1L, "wti", null, "test", null, "USD", "USD/BBL", "Crude Oil", false, "POL"),
-            new SeriesSummary(2L, "freight", null, "test", null, "USD", "USD/MT", "Freight", true, "POD")
+            new SeriesSummary(1L, "wti", null, "test", null, "USD", "USD/BBL", "Crude Oil", false, "POL", "USA"),
+            new SeriesSummary(2L, "freight", null, "test", null, "USD", "USD/MT", "Freight", true, "POD", "Europe")
         ));
 
         LocalDate date = LocalDate.of(2026, 1, 5);
@@ -54,7 +54,9 @@ class SeriesControllerTest {
             .andExpect(jsonPath("$[0].isFret").value(false))
             .andExpect(jsonPath("$[1].isFret").value(true))
             .andExpect(jsonPath("$[0].logic").value("POL"))
-            .andExpect(jsonPath("$[1].logic").value("POD"));
+            .andExpect(jsonPath("$[1].logic").value("POD"))
+            .andExpect(jsonPath("$[0].zone").value("USA"))
+            .andExpect(jsonPath("$[1].zone").value("Europe"));
     }
 
     @Test

@@ -41,11 +41,11 @@ try {
     return route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify([
-        { id: 1, benchmarkId: 'BRENT', provider: 'Platts', unit: 'USD/MT', family: 'Crude Oil (Brut)', logic: 'POL', isFret: false },
-        { id: 2, benchmarkId: 'DUBAI', provider: 'Argus', unit: 'USD/BBL', family: 'Crude Oil (Brut)', isFret: false },
+        { id: 1, benchmarkId: 'BRENT', provider: 'Platts', unit: 'USD/MT', family: 'Crude Oil (Brut)', logic: 'POL', zone: 'Europe', isFret: false },
+        { id: 2, benchmarkId: 'DUBAI', provider: 'Argus', unit: 'USD/BBL', family: 'Crude Oil (Brut)', zone: 'Asia', isFret: false },
         { id: 3, benchmarkId: 'WTI', provider: 'Argus', unit: 'USD/BBL', family: null, isFret: false },
-        { id: 4, benchmarkId: 'Unavailable', provider: null, unit: 'EUR/MWh', family: 'Jet Fuel', logic: 'POD', isFret: false },
-        { id: 5, benchmarkId: 'FREIGHT', provider: 'Baltic', unit: 'USD/MT', family: 'Freight', isFret: true },
+        { id: 4, benchmarkId: 'Unavailable', provider: null, unit: 'EUR/MWh', family: 'Jet Fuel', logic: 'POD', zone: 'Middle East', isFret: false },
+        { id: 5, benchmarkId: 'FREIGHT', provider: 'Baltic', unit: 'USD/MT', family: 'Freight', zone: 'Atlantic', isFret: true },
       ]),
     })
   })
@@ -163,6 +163,8 @@ try {
     (options) => options.map((option) => option.value)), ['', '5'])
   await page.getByLabel('Fret series').selectOption('5')
   await page.getByLabel('Commodity series').selectOption('1')
+  assert.equal(await page.getByLabel('Commodity series').locator('option:checked').textContent(), 'Crude Oil (Brut) — Europe — Platts — USD/MT')
+  assert.equal(await page.getByLabel('Fret series').locator('option:checked').textContent(), 'Freight — Atlantic — Baltic — USD/MT')
   await page.getByLabel('Window around shipment date').selectOption('7')
   await page.getByLabel('Quantity', { exact: true }).fill('0')
   await page.getByRole('button', { name: 'Analyze prices' }).click()
