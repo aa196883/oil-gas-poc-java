@@ -41,25 +41,63 @@ try {
   let failMargins = false
   const boundaryRequests = []
   const dates = ['2026-10-08', '2026-10-11', '2026-10-15', '2026-10-18', '2026-10-22']
-  // Non-proportional fixtures verify that the chart uses the returned series.
-  const fulfillBoundary = (route) => {
-    const url = new URL(route.request().url())
-    boundaryRequests.push({ path: url.pathname, ...Object.fromEntries(url.searchParams) })
-    const values =
-      Number(url.searchParams.get('proportion')) < 0 ? [54, 61, 59, 75, 78] : [82, 85, 74, 90, 103]
+  const commodityValues = [63.85, 67.2, 70.35, 74.7, 81.075]
+  const marketValues = [68.85, 73.2, 76.35, 80.7, 87.075]
+  const toPoints = (values) => dates.map((date, i) => ({ date, price: values[i] }))
+  const transformRequests = []
+  const deltaRequests = []
+  const removedRequests = []
+  await page.route(
+    /\/api\/series\/\d+\/(ajusted-prices|prices-with-freight|deltas|deltas-with-freight)\?/,
+    (route) => {
+      removedRequests.push(route.request().url())
+      return route.fulfill({ status: 404, body: '{}' })
+    },
+  )
+  await page.route('**/api/prices/transform', (route) => {
+    assert.equal(route.request().method(), 'POST')
+    const body = route.request().postDataJSON()
+    transformRequests.push(body)
+    assert.equal(body.operations.length, 1)
+    const operation = body.operations[0]
+    if (operation.type === 'ADD_FREIGHT') {
+      assert.deepEqual(body.prices, toPoints(commodityValues))
+      assert.equal(operation.prices[0].date, '2026-10-07')
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify(toPoints(marketValues)),
+      })
+    }
+    assert.equal(operation.type, 'MULTIPLY')
+    boundaryRequests.push(body)
+    const withFreight = body.prices[0].price === marketValues[0]
+    assert.deepEqual(body.prices, toPoints(withFreight ? marketValues : commodityValues))
+    assert.ok((withFreight ? [0.8, 1.15] : [0.85, 1.1]).includes(operation.value))
+    // Non-proportional responses verify that chart boundaries remain server-supplied.
+    const values = operation.value < 1 ? [54, 61, 59, 75, 78] : [82, 85, 74, 90, 103]
     return route.fulfill({
       status: failMargins ? 503 : 200,
       contentType: 'application/json',
-      body: JSON.stringify(failMargins ? {} : dates.map((date, i) => ({ date, price: values[i] }))),
+      body: JSON.stringify(failMargins ? {} : toPoints(values)),
     })
-  }
-  await page.route('**/api/series/*/ajusted-prices?*', fulfillBoundary)
-  await page.route('**/api/series/*/deltas?*', (route) =>
-    route.fulfill({
+  })
+  await page.route('**/api/analysis/deltas', (route) => {
+    assert.equal(route.request().method(), 'POST')
+    const body = route.request().postDataJSON()
+    deltaRequests.push(body)
+    assert.equal(body.referencePrice, 75)
+    const withFreight = body.prices[0].price === marketValues[0]
+    assert.deepEqual(body.prices, toPoints(withFreight ? marketValues : commodityValues))
+    return route.fulfill({
       contentType: 'application/json',
-      body: JSON.stringify(dates.map((date) => ({ date, delta: 2 }))),
-    }),
-  )
+      body: JSON.stringify(
+        body.prices.map((point) => ({
+          date: point.date,
+          delta: Number((((point.price - 75) / 75) * 100).toFixed(4)),
+        })),
+      ),
+    })
+  })
   await page.route('**/api/geography/benchmark?*', (route) => {
     const params = Object.fromEntries(new URL(route.request().url()).searchParams)
     benchmarkRequests.push(params)
@@ -140,25 +178,8 @@ try {
       ]),
     })
   })
-  await page.route('**/api/series/*/prices-with-freight?*', (route) => {
-    assert.equal(new URL(route.request().url()).pathname, '/api/series/1/prices-with-freight')
-    assert.equal(new URL(route.request().url()).searchParams.get('freightId'), '5')
-    if (new URL(route.request().url()).searchParams.has('proportion')) return fulfillBoundary(route)
-    assert.equal(new URL(route.request().url()).searchParams.get('unit'), 'USD/BBL')
-    return route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify([
-        { date: '2026-10-08', price: 68.85 },
-        { date: '2026-10-11', price: 73.2 },
-        { date: '2026-10-15', price: 76.35 },
-        { date: '2026-10-18', price: 80.7 },
-        { date: '2026-10-22', price: 87.075 },
-      ]),
-    })
-  })
   await page.route('**/api/series/*/prices?*', (route) => {
     const url = new URL(route.request().url())
-    if (url.pathname.endsWith('/prices-with-freight')) return route.fallback()
     assert.equal(url.searchParams.get('freightId'), null)
     assert.equal(url.searchParams.get('unit'), 'USD/BBL')
     const prices =
@@ -191,32 +212,12 @@ try {
   await page.route('**/api/series/5/prices?*', (route) => {
     const url = new URL(route.request().url())
     assert.equal(url.searchParams.get('unit'), 'USD/BBL')
+    assert.equal(url.searchParams.get('start'), '0001-01-01')
     return route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify([
-        { date: '2026-10-08', price: 5 },
+        { date: '2026-10-07', price: 5 },
         { date: '2026-10-11', price: 6 },
-        { date: '2026-10-15', price: 6 },
-        { date: '2026-10-18', price: 6 },
-        { date: '2026-10-22', price: 6 },
-      ]),
-    })
-  })
-
-  await page.route('**/api/series/*/deltas-with-freight?*', (route) => {
-    assert.equal(new URL(route.request().url()).pathname, '/api/series/1/deltas-with-freight')
-    const params = new URL(route.request().url()).searchParams
-    assert.equal(params.get('unit'), 'USD/BBL')
-    assert.equal(params.get('referencePrice'), '75')
-    assert.equal(params.get('freightId'), '5')
-    return route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify([
-        { date: '2026-10-08', delta: -8.2 },
-        { date: '2026-10-11', delta: -2.4 },
-        { date: '2026-10-15', delta: 1.8 },
-        { date: '2026-10-18', delta: 7.6 },
-        { date: '2026-10-22', delta: 16.1 },
       ]),
     })
   })
@@ -396,10 +397,15 @@ try {
   await page.getByLabel('Show differences (%)').check()
   const marginToggle = page.getByLabel('Show tolerated margins', { exact: true })
   assert.equal(await marginToggle.isChecked(), false)
-  assert.deepEqual(boundaryRequests.map((request) => request.proportion).sort(), ['-0.2', '0.15'])
-  assert.ok(
-    boundaryRequests.every((request) => request.freightId === '5' && request.unit === 'USD/BBL'),
+  assert.deepEqual(
+    boundaryRequests.map((request) => request.operations[0].value).sort(),
+    [0.8, 1.15],
   )
+  assert.equal(
+    transformRequests.filter((request) => request.operations[0].type === 'ADD_FREIGHT').length,
+    1,
+  )
+  assert.equal(deltaRequests.length, 1)
   const readBand = () =>
     page.evaluate(async () => {
       const source = await (await fetch('/src/components/PriceChart.vue')).text()
@@ -508,12 +514,11 @@ try {
   await page.getByRole('button', { name: 'Analyze prices' }).click()
   await marginToggle.waitFor()
   assert.equal(await marginToggle.isChecked(), false)
-  assert.deepEqual(boundaryRequests.map((request) => request.proportion).sort(), ['-0.15', '0.1'])
-  assert.ok(
-    boundaryRequests.every(
-      (request) => request.path === '/api/series/1/ajusted-prices' && !request.freightId,
-    ),
+  assert.deepEqual(
+    boundaryRequests.map((request) => request.operations[0].value).sort(),
+    [0.85, 1.1],
   )
+  assert.deepEqual(deltaRequests.at(-1).prices, toPoints(commodityValues))
   await marginToggle.check()
   await page.waitForTimeout(400)
   assert.equal((await readBand()).length, 4)
@@ -534,6 +539,7 @@ try {
   await page.getByRole('status').filter({ hasText: 'unavailable for this series' }).waitFor()
   assert.equal(await marginToggle.isDisabled(), true)
   assert.equal(boundaryRequests.length, 0)
+  assert.deepEqual(removedRequests, [])
   console.log(`Screenshot saved to ${outputPath.pathname}`)
 } finally {
   await browser?.close()

@@ -14,7 +14,7 @@ class AnalysisServiceTest {
 
     @Test
     void shouldComputeQuantilesWithLinearInterpolation() {
-        AnalysisService service = new AnalysisService(mock(SeriesService.class));
+        AnalysisService service = new AnalysisService(mock(SeriesService.class), new PriceService());
         LocalDate date = LocalDate.of(2026, 1, 1);
         List<PricePoint> prices = List.of(
             new PricePoint(date, new BigDecimal("50")),

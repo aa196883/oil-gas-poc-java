@@ -11,6 +11,9 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
+import org.springframework.http.MediaType;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -24,8 +27,8 @@ class AnalysisControllerTest {
     @BeforeEach
     void setUp() {
         seriesService = mock(SeriesService.class);
-        AnalysisService analysisService = new AnalysisService(seriesService);
-        mvc = MockMvcBuilders.standaloneSetup(new AnalysisController(analysisService))
+        AnalysisService analysisService = new AnalysisService(seriesService, new PriceService());
+        mvc = MockMvcBuilders.standaloneSetup(new AnalysisController(analysisService, new DeltaService()))
             .setControllerAdvice(new GlobalExceptionHandler())
             .build();
     }
@@ -39,7 +42,7 @@ class AnalysisControllerTest {
             new PricePoint(end, new BigDecimal("20"))
         );
         when(seriesService.getPrices(1L, start, end, "USD/MT")).thenReturn(prices);
-        when(seriesService.getPricesWithFreight(1L, 15L, start, end, "USD/MT"))
+        when(seriesService.getPrices(15L, LocalDate.of(1, 1, 1), end, "USD/MT"))
             .thenReturn(prices);
 
         mvc.perform(get("/api/analysis/1/quantiles")
@@ -58,7 +61,30 @@ class AnalysisControllerTest {
                 .param("freightId", "15"))
             .andExpect(status().isOk());
 
-        verify(seriesService).getPrices(1L, start, end, "USD/MT");
-        verify(seriesService).getPricesWithFreight(1L, 15L, start, end, "USD/MT");
+        verify(seriesService, times(2)).getPrices(1L, start, end, "USD/MT");
+        verify(seriesService).getPrices(15L, LocalDate.of(1, 1, 1), end, "USD/MT");
+    }
+
+    @Test
+    void shouldCalculateDeltasFromSubmittedPrices() throws Exception {
+        mvc.perform(post("/api/analysis/deltas").contentType(MediaType.APPLICATION_JSON).content("""
+            {"prices":[{"date":"2026-10-01","price":550}],"referencePrice":500}
+            """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].date").value("2026-10-01"))
+            .andExpect(jsonPath("$[0].delta").value(10));
+    }
+
+    @Test
+    void shouldRejectMissingPricesAndInvalidReferencePrice() throws Exception {
+        for (String body : new String[] {
+            "{}", "{\"prices\":[],\"referencePrice\":0}",
+            "{\"prices\":[null],\"referencePrice\":500}",
+            "{\"prices\":[],\"referencePrice\":-1}"
+        }) {
+            mvc.perform(post("/api/analysis/deltas").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
+        }
     }
 }

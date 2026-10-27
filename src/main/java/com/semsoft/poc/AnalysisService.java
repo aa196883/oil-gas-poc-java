@@ -13,9 +13,11 @@ import org.springframework.stereotype.Service;
 public class AnalysisService {
 
     private final SeriesService seriesService;
+    private final PriceService priceService;
 
-    public AnalysisService(SeriesService seriesService) {
+    public AnalysisService(SeriesService seriesService, PriceService priceService) {
         this.seriesService = seriesService;
+        this.priceService = priceService;
     }
 
     Map<Double, BigDecimal> getQuantiles(
@@ -25,9 +27,15 @@ public class AnalysisService {
         String unit,
         Long freightId
     ) {
-        List<PricePoint> prices = freightId == null
-            ? seriesService.getPrices(seriesId, start, end, unit)
-            : seriesService.getPricesWithFreight(seriesId, freightId, start, end, unit);
+        List<PricePoint> prices = seriesService.getPrices(seriesId, start, end, unit);
+        if (freightId != null) {
+            List<PricePoint> freight = seriesService.getPrices(
+                freightId, LocalDate.of(1, 1, 1), end, unit
+            );
+            prices = priceService.transform(new TransformRequest(
+                prices, List.of(new Operation("ADD_FREIGHT", null, freight))
+            ));
+        }
 
         return computeQuantiles(prices);
     }

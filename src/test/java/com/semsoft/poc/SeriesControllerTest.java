@@ -23,8 +23,7 @@ class SeriesControllerTest {
         SeriesRepository repository = mock(SeriesRepository.class);
         UnitConverter converter = new UnitConverter();
         mvc = MockMvcBuilders.standaloneSetup(new SeriesController(
-            new SeriesService(repository, converter),
-            new DeltaService()
+            new SeriesService(repository, converter)
         )).setControllerAdvice(new GlobalExceptionHandler()).build();
 
         when(repository.findAll()).thenReturn(List.of(
@@ -34,12 +33,6 @@ class SeriesControllerTest {
 
         LocalDate date = LocalDate.of(2026, 1, 5);
         when(repository.existsById(1L)).thenReturn(true);
-        when(repository.existsById(2L)).thenReturn(true);
-        when(repository.findBenchmarkUnit(2L)).thenReturn(Optional.of("USD/MT"));
-        when(repository.findBenchmarkFamily(2L)).thenReturn(Optional.of("Freight"));
-        when(repository.findPricesUntil(2L, date)).thenReturn(
-            List.of(new PricePoint(date.minusDays(1), new BigDecimal("10")))
-        );
         when(repository.findBenchmarkUnit(1L)).thenReturn(Optional.of("USD/BBL"));
         when(repository.findBenchmarkFamily(1L)).thenReturn(Optional.of("Crude Oil (Brut)"));
         when(repository.findPrices(1L, date, date)).thenReturn(
@@ -66,71 +59,36 @@ class SeriesControllerTest {
     }
 
     @Test
-    void shouldReturnPricesAndDeltasInRequestedUnit() throws Exception {
+    void shouldReturnPricesInRequestedUnit() throws Exception {
         mvc.perform(get("/api/series/1/prices")
                 .param("start", "2026-01-05").param("end", "2026-01-05")
                 .param("unit", "USD/Gallon"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].price").value(2));
 
-        mvc.perform(get("/api/series/1/deltas")
-                .param("start", "2026-01-05").param("end", "2026-01-05")
-                .param("referencePrice", "1.9").param("unit", "USD/Gallon"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].delta").value(5.2632));
     }
 
     @Test
-    void shouldReturnPricesAndDeltasWithFreight() throws Exception {
-        mvc.perform(get("/api/series/1/prices-with-freight")
-                .param("freightId", "2")
-                .param("start", "2026-01-05").param("end", "2026-01-05")
-                .param("unit", "USD/MT"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].price").value(625.72));
-
-        mvc.perform(get("/api/series/1/deltas-with-freight")
-                .param("freightId", "2")
-                .param("start", "2026-01-05").param("end", "2026-01-05")
-                .param("referencePrice", "600").param("unit", "USD/MT"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].delta").value(4.2867));
+    void shouldRequireUnit() throws Exception {
+        mvc.perform(get("/api/series/1/prices")
+                .param("start", "2026-01-05").param("end", "2026-01-05"))
+            .andExpect(status().isBadRequest());
     }
 
     @Test
-    void shouldReturnAdjustedPricesWithAndWithoutFreight() throws Exception {
-        mvc.perform(get("/api/series/1/ajusted-prices")
+    void shouldRejectUnsupportedUnit() throws Exception {
+        mvc.perform(get("/api/series/1/prices")
                 .param("start", "2026-01-05").param("end", "2026-01-05")
-                .param("unit", "USD/Gallon").param("proportion", "0.1"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].price").value(2.2));
-
-        mvc.perform(get("/api/series/1/prices-with-freight")
-                .param("freightId", "2")
-                .param("start", "2026-01-05").param("end", "2026-01-05")
-                .param("unit", "USD/MT").param("proportion", "-0.25"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].price").value(469.29));
+                .param("unit", "unknown"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
     }
 
     @Test
-    void shouldRequireUnitOnBothEndpoints() throws Exception {
-        for (String endpoint : List.of("prices", "deltas")) {
-            mvc.perform(get("/api/series/1/" + endpoint)
-                    .param("start", "2026-01-05").param("end", "2026-01-05")
-                    .param("referencePrice", "550"))
-                .andExpect(status().isBadRequest());
-        }
-    }
-
-    @Test
-    void shouldRejectUnsupportedUnitOnBothEndpoints() throws Exception {
-        for (String endpoint : List.of("prices", "deltas")) {
-            mvc.perform(get("/api/series/1/" + endpoint)
-                    .param("start", "2026-01-05").param("end", "2026-01-05")
-                    .param("referencePrice", "550").param("unit", "unknown"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
+    void shouldRemoveCombinationEndpoints() throws Exception {
+        for (String endpoint : List.of("ajusted-prices", "prices-with-freight", "deltas", "deltas-with-freight")) {
+            mvc.perform(get("/api/series/1/" + endpoint))
+                .andExpect(status().isNotFound());
         }
     }
 }

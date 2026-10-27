@@ -21,7 +21,7 @@ class FreightPricesControllerTest {
         "USD/day, USA, 100000, 68.719",
         "USD/MT, Asie, 10, 10"
     })
-    void shouldConvertFreightForBothBreakdownAndCombinedPrices(
+    void shouldConvertFreightPrices(
         String nativeUnit, String zone, String nativePrice, double freightPrice
     ) throws Exception {
         SeriesRepository repository = mock(SeriesRepository.class);
@@ -36,23 +36,17 @@ class FreightPricesControllerTest {
         when(repository.findBenchmarkZone(22L)).thenReturn(Optional.of(zone));
         List<PricePoint> freight = List.of(new PricePoint(date, new BigDecimal(nativePrice)));
         when(repository.findPrices(22L, date, date)).thenReturn(freight);
-        when(repository.findPricesUntil(22L, date)).thenReturn(freight);
         when(repository.findPrices(1L, date, date)).thenReturn(
             List.of(new PricePoint(date, new BigDecimal("100")))
         );
         var mvc = MockMvcBuilders.standaloneSetup(new SeriesController(
-            new SeriesService(repository, new UnitConverter()), new DeltaService()
+            new SeriesService(repository, new UnitConverter())
         )).setControllerAdvice(new GlobalExceptionHandler()).build();
 
         mvc.perform(get("/api/series/22/prices")
                 .param("start", date.toString()).param("end", date.toString()).param("unit", "USD/MT"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].price").value(freightPrice));
-        mvc.perform(get("/api/series/1/prices-with-freight")
-                .param("freightId", "22").param("start", date.toString())
-                .param("end", date.toString()).param("unit", "USD/MT"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].price").value(BigDecimal.valueOf(freightPrice).add(new BigDecimal("100")).doubleValue()));
         mvc.perform(get("/api/series/22/prices")
                 .param("start", date.toString()).param("end", date.toString()).param("unit", "USD/MMBtu"))
             .andExpect(status().isOk())

@@ -146,8 +146,32 @@ async function analyze() {
     const includeFreight =
       (operation.value.incoterms === 'CFR' || operation.value.incoterms === 'CIF') &&
       selectedFretSeriesId.value !== null
-    const deltaParams = new URLSearchParams(params)
-    deltaParams.set('referencePrice', referencePrice)
+    const readJson = async (response) => {
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.message || `HTTP ${response.status}`)
+      return result
+    }
+    const post = async (url, body) =>
+      readJson(
+        await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }),
+      )
+    const transform = (prices, operations) => post('/api/prices/transform', { prices, operations })
+    // Include earlier quotations so ADD_FREIGHT can carry the last known value forward.
+    const freightParams = new URLSearchParams(params)
+    freightParams.set('start', '0001-01-01')
+    const [commodityPoints, freightPoints] = await Promise.all([
+      fetch(`/api/series/${selectedSeriesId.value}/prices?${params}`).then(readJson),
+      includeFreight
+        ? fetch(`/api/series/${selectedFretSeriesId.value}/prices?${freightParams}`).then(readJson)
+        : Promise.resolve([]),
+    ])
+    const pricePoints = includeFreight
+      ? await transform(commodityPoints, [{ type: 'ADD_FREIGHT', prices: freightPoints }])
+      : commodityPoints
 
     const selectedSeries = series.value.find((item) => item.id === selectedSeriesId.value)
     const margins = includeFreight ? selectedSeries?.marginsWithFreight : selectedSeries?.margins
@@ -156,61 +180,28 @@ async function analyze() {
       margins.length === 2 &&
       margins.every((value) => typeof value === 'number' && Number.isFinite(value))
         ? Promise.all(
-            margins.map(async (proportion) => {
-              const boundaryParams = new URLSearchParams(params)
-              boundaryParams.set('proportion', proportion)
-              if (includeFreight) boundaryParams.set('freightId', selectedFretSeriesId.value)
-              const endpoint = includeFreight ? 'prices-with-freight' : 'ajusted-prices'
-              const response = await fetch(
-                `/api/series/${selectedSeriesId.value}/${endpoint}?${boundaryParams}`,
-              )
-              if (!response.ok)
-                throw new Error(
-                  'Could not load tolerated margins. Run the analysis again to retry.',
-                )
-              return response.json()
-            }),
+            margins.map((proportion) =>
+              transform(pricePoints, [{ type: 'MULTIPLY', value: 1 + proportion }]),
+            ),
           ).then(
             (bounds) => ({ bounds }),
-            (err) => ({ error: err.message }),
+            () => ({ error: 'Could not load tolerated margins. Run the analysis again to retry.' }),
           )
         : Promise.resolve({ error: 'Tolerated margins are unavailable for this series.' })
-
-    let responses
-    if (includeFreight) {
-      const freightParams = new URLSearchParams(params)
-      freightParams.set('freightId', selectedFretSeriesId.value)
-      deltaParams.set('freightId', selectedFretSeriesId.value)
-      responses = await Promise.all([
-        fetch(`/api/series/${selectedSeriesId.value}/prices-with-freight?${freightParams}`),
-        fetch('/api/series/' + selectedSeriesId.value + '/prices?' + params),
-        fetch('/api/series/' + selectedFretSeriesId.value + '/prices?' + params),
-        fetch('/api/series/' + selectedSeriesId.value + '/deltas-with-freight?' + deltaParams),
-      ])
-    } else {
-      responses = await Promise.all([
-        fetch(`/api/series/${selectedSeriesId.value}/prices?${params}`),
-        fetch(`/api/series/${selectedSeriesId.value}/deltas?${deltaParams}`),
-      ])
-    }
-
-    for (const response of responses) {
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    }
-    const payloads = await Promise.all(responses.map((response) => response.json()))
-
-    if (includeFreight) {
-      const [pricePoints, commodityPoints, freightPoints, deltaPoints] = payloads
-      prices.value = pricePoints
-      commodityPrices.value = commodityPoints
-      freightPrices.value = freightPoints
-      deltas.value = deltaPoints
-    } else {
-      const [pricePoints, deltaPoints] = payloads
-      prices.value = pricePoints
-      deltas.value = deltaPoints
-    }
-    const boundaryResult = await boundsRequest
+    const [deltaPoints, boundaryResult] = await Promise.all([
+      post('/api/analysis/deltas', { prices: pricePoints, referencePrice }),
+      boundsRequest,
+    ])
+    prices.value = pricePoints
+    commodityPrices.value = includeFreight ? commodityPoints : []
+    // Use the freight amounts actually applied to the market dates in the tooltip.
+    freightPrices.value = includeFreight
+      ? pricePoints.map((point, index) => ({
+          date: point.date,
+          price: Number(point.price) - Number(commodityPoints[index].price),
+        }))
+      : []
+    deltas.value = deltaPoints
     marginBounds.value = boundaryResult.bounds ?? []
     marginError.value = boundaryResult.error ?? null
     resultReferencePrice.value = referencePrice

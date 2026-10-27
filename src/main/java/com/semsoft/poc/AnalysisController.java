@@ -3,6 +3,9 @@ package com.semsoft.poc;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.List;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,9 +23,19 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 public class AnalysisController {
 
     private final AnalysisService analysisService;
+    private final DeltaService deltaService;
 
-    public AnalysisController(AnalysisService analysisService) {
+    public AnalysisController(AnalysisService analysisService, DeltaService deltaService) {
         this.analysisService = analysisService;
+        this.deltaService = deltaService;
+    }
+
+    public record DeltaRequest(List<PricePoint> prices, BigDecimal referencePrice) {}
+
+    @PostMapping("/deltas")
+    public List<DeltaPoint> getDeltas(@RequestBody DeltaRequest request) {
+        PriceService.validatePrices(request.prices());
+        return deltaService.getDeltas(request.prices(), request.referencePrice());
     }
 
     @Operation(
