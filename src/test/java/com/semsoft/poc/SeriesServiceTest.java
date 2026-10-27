@@ -106,4 +106,35 @@ public class SeriesServiceTest {
         assertEquals(0, new BigDecimal("216.61600000").compareTo(result.get(1).price()));
     }
 
+
+    @Test
+    void shouldAdjustPricesByProportion() {
+        SeriesRepository repository = mock(SeriesRepository.class);
+        SeriesService service = spy(new SeriesService(repository, new UnitConverter()));
+        LocalDate date = LocalDate.of(2026, 1, 5);
+
+        doReturn(List.of(new PricePoint(date, new BigDecimal("100"))))
+            .when(service).getPrices(1L, date, date, "USD/BBL");
+        doReturn(List.of(new PricePoint(date, new BigDecimal("200"))))
+            .when(service).getPricesWithFreight(1L, 15L, date, date, "USD/MT");
+
+        List<PricePoint> increased = service.getAjustedPrices(
+            1L, date, date, "USD/BBL", new BigDecimal("0.1")
+        );
+        List<PricePoint> decreasedWithFreight = service.getPricesWithFreight(
+            1L, 15L, date, date, "USD/MT", new BigDecimal("-0.25")
+        );
+
+        assertEquals(date, increased.getFirst().date());
+        assertEquals(0, new BigDecimal("110").compareTo(increased.getFirst().price()));
+        assertEquals(
+            0,
+            new BigDecimal("150").compareTo(decreasedWithFreight.getFirst().price())
+        );
+        verify(service).getPrices(1L, date, date, "USD/BBL");
+        verify(service).getPricesWithFreight(
+            1L, 15L, date, date, "USD/MT"
+        );
+    }
+
 }

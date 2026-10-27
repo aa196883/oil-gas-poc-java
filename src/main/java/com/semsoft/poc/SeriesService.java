@@ -57,6 +57,16 @@ public class SeriesService {
             .toList();
     }
 
+    public List<PricePoint> getAjustedPrices(
+        long seriesId,
+        LocalDate start,
+        LocalDate end,
+        String unit,
+        BigDecimal proportion
+    ) {
+        return adjustPrices(getPrices(seriesId, start, end, unit), proportion);
+    }
+
     public List<PricePoint> getPricesWithFreight(
         long seriesId,
         long freightSeriesId,
@@ -113,6 +123,33 @@ public class SeriesService {
                     priceUsdPerMt.divide(requestedFactor, MathContext.DECIMAL64)
                 );
             })
+            .toList();
+    }
+
+    public List<PricePoint> getPricesWithFreight(
+        long seriesId,
+        long freightSeriesId,
+        LocalDate start,
+        LocalDate end,
+        String unit,
+        BigDecimal proportion
+    ) {
+        return adjustPrices(
+            getPricesWithFreight(seriesId, freightSeriesId, start, end, unit),
+            proportion
+        );
+    }
+
+    private List<PricePoint> adjustPrices(
+        List<PricePoint> prices,
+        BigDecimal proportion
+    ) {
+        BigDecimal multiplier = BigDecimal.ONE.add(proportion);
+        return prices.stream()
+            .map(point -> new PricePoint(
+                point.date(),
+                point.price().multiply(multiplier)
+            ))
             .toList();
     }
 
