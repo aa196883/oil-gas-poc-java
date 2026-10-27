@@ -356,8 +356,44 @@ try {
   assert.equal(await page.getByText('5 quotations analyzed.').count(), 0)
   assert.equal(metadataRequests, 1)
   assert.equal(await page.getByLabel('Show commodity price').isChecked(), false)
-  assert.equal(await page.getByLabel('Show freight price').isChecked(), false)
+  assert.equal(await page.getByLabel('Show freight price').count(), 0)
   assert.equal(await page.getByLabel('Show quantiles').isChecked(), false)
+  // Hidden commodity and difference layers must still supply all tooltip values.
+  await page.getByLabel('Show differences (%)').uncheck()
+  const hoverMarket = async () => {
+    await page.locator('.chart').scrollIntoViewIfNeeded()
+    const point = await page.evaluate(async () => {
+      const source = await (await fetch('/src/components/PriceChart.vue')).text()
+      const echarts = await import(source.match(/from ["']([^"']*echarts[^"']*)["']/)[1])
+      const chart = echarts.getInstanceByDom(document.querySelector('.chart'))
+      const series = chart.getOption().series
+      assertNoFreightSeries(series)
+      function assertNoFreightSeries(items) {
+        if (items.some((item) => item.name === 'Freight price'))
+          throw new Error('Freight graph still exists')
+      }
+      const market = series.find((item) =>
+        ['Price with freight', 'Market price'].includes(item.name),
+      )
+      return chart.convertToPixel({ seriesIndex: series.indexOf(market) }, market.data[2])
+    })
+    const box = await page.locator('.chart').boundingBox()
+    await page.mouse.move(box.x + point[0], box.y + point[1])
+  }
+  await hoverMarket()
+  for (const text of [
+    'Price with freight: 76.35 USD/BBL',
+    'Commodity price: 70.35 USD/BBL',
+    'Freight price: 6.00 USD/BBL',
+    'Declared price: 75.00 USD/BBL',
+    'Difference: +1.80 %',
+  ]) {
+    await page.getByText(text, { exact: false }).last().waitFor({ state: 'visible' })
+  }
+  await page.locator('.chart-container').screenshot({
+    path: new URL('../artifacts/all-values-tooltip.png', import.meta.url).pathname,
+  })
+  await page.getByLabel('Show differences (%)').check()
   const marginToggle = page.getByLabel('Show tolerated margins', { exact: true })
   assert.equal(await marginToggle.isChecked(), false)
   assert.deepEqual(boundaryRequests.map((request) => request.proportion).sort(), ['-0.2', '0.15'])
@@ -414,7 +450,6 @@ try {
   assert.deepEqual(await readBand(), [])
   await marginToggle.check()
   await page.getByLabel('Show commodity price').check()
-  await page.getByLabel('Show freight price').check()
   await page.getByLabel('Show quantiles').check()
   await page.waitForTimeout(400)
   await page.getByLabel('Show differences (%)').uncheck()
@@ -447,12 +482,7 @@ try {
     path: new URL('../artifacts/quantile-help.png', import.meta.url).pathname,
     fullPage: true,
   })
-  for (const name of [
-    'Show commodity price',
-    'Show freight price',
-    'Show differences (%)',
-    'Show quantiles',
-  ]) {
+  for (const name of ['Show commodity price', 'Show differences (%)', 'Show quantiles']) {
     await page.getByLabel(name, { exact: true }).hover()
     assert.equal(
       await page.getByLabel(name, { exact: true }).locator('..').getByRole('tooltip').isVisible(),

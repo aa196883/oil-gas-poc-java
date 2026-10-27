@@ -16,7 +16,6 @@ const props = defineProps({
 const chartElement = ref(null)
 const showDeltas = ref(true)
 const showCommodityPrices = ref(false)
-const showFreightPrices = ref(false)
 const showQuantiles = ref(false)
 const showMargins = ref(false)
 // Join the returned boundaries by date, independently of market prices or proportions.
@@ -50,12 +49,10 @@ const hasMargins = computed(() => boundarySegments.value.length > 0)
 const quantileLabels = ref([])
 const layerHelp = {
   commodity: 'Shows the commodity price before freight is added.',
-  freight: 'Shows the freight price separately in the selected unit.',
   differences:
     'Compares the declared price with the boundary prices on each date: green within bounds (inclusive), red outside or when bounds are unavailable.',
   quantiles: 'Shows historical price percentiles and their shaded ranges.',
-  margins:
-    'Shows the tolerated price range for the commodity.',
+  margins: 'Shows the tolerated price range for the commodity.',
 }
 
 const quantileLevels = [0.05, 0.25, 0.5, 0.75, 0.95]
@@ -131,7 +128,6 @@ function updateChart() {
     reference,
     ...points.map((point) => point.price),
     ...(showCommodityPrices.value ? commodityPoints.map((point) => point.price) : []),
-    ...(showFreightPrices.value ? freightPoints.map((point) => point.price) : []),
     ...(showQuantiles.value ? Object.values(quantiles) : []),
     ...(showMargins.value
       ? boundarySegments.value.flat(1).flatMap((point) => [point.lower, point.upper])
@@ -183,10 +179,10 @@ function updateChart() {
           '<strong>' + point.date + '</strong><br/>',
           marketLabel + ': ' + point.price.toFixed(2) + ' ' + props.unit + '<br/>',
         ]
-        if (hasFreightBreakdown && showCommodityPrices.value) {
+        if (commodity) {
           lines.push('Commodity price: ' + commodity.price.toFixed(2) + ' ' + props.unit + '<br/>')
         }
-        if (hasFreightBreakdown && showFreightPrices.value) {
+        if (freight) {
           lines.push('Freight price: ' + freight.price.toFixed(2) + ' ' + props.unit + '<br/>')
         }
         lines.push('Declared price: ' + reference.toFixed(2) + ' ' + props.unit + '<br/>')
@@ -326,17 +322,6 @@ function updateChart() {
           : [],
       },
       {
-        name: 'Freight price',
-        type: 'line',
-        z: 2,
-        showSymbol: false,
-        lineStyle: { color: '#f59e0b', width: 2 },
-        itemStyle: { color: '#f59e0b' },
-        data: showFreightPrices.value
-          ? freightPoints.map((point) => [point.time, point.price])
-          : [],
-      },
-      {
         name: 'Quantiles',
         type: 'line',
         silent: true,
@@ -417,7 +402,6 @@ watch(
     props.unit,
     showDeltas.value,
     showCommodityPrices.value,
-    showFreightPrices.value,
     showQuantiles.value,
     showMargins.value,
     props.marginBounds,
@@ -443,11 +427,6 @@ watch(
         <input v-model="showCommodityPrices" type="checkbox" aria-label="Show commodity price" />
         Show commodity price
         <span class="help-popup" role="tooltip">{{ layerHelp.commodity }}</span>
-      </label>
-      <label v-if="freightPrices.length > 0">
-        <input v-model="showFreightPrices" type="checkbox" aria-label="Show freight price" />
-        Show freight price
-        <span class="help-popup" role="tooltip">{{ layerHelp.freight }}</span>
       </label>
       <label>
         <input v-model="showDeltas" type="checkbox" aria-label="Show differences (%)" />
