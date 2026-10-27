@@ -92,6 +92,22 @@ class SeriesControllerTest {
     }
 
     @Test
+    void shouldReturnAdjustedPricesWithAndWithoutFreight() throws Exception {
+        mvc.perform(get("/api/series/1/ajusted-prices")
+                .param("start", "2026-01-05").param("end", "2026-01-05")
+                .param("unit", "USD/Gallon").param("proportion", "0.1"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].price").value(2.2));
+
+        mvc.perform(get("/api/series/1/prices-with-freight")
+                .param("freightId", "2")
+                .param("start", "2026-01-05").param("end", "2026-01-05")
+                .param("unit", "USD/MT").param("proportion", "-0.25"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].price").value(469.29));
+    }
+
+    @Test
     void shouldRequireUnitOnBothEndpoints() throws Exception {
         for (String endpoint : List.of("prices", "deltas")) {
             mvc.perform(get("/api/series/1/" + endpoint)
