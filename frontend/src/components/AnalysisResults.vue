@@ -5,6 +5,8 @@ defineProps({
   prices: { type: Array, required: true },
   commodityPrices: { type: Array, required: true },
   freightPrices: { type: Array, required: true },
+  marginBounds: { type: Array, default: () => [] },
+  marginError: { type: String, default: null },
   unit: { type: String, required: true },
   referencePrice: { type: Number, required: true },
   analyzing: { type: Boolean, required: true },
@@ -26,6 +28,8 @@ defineProps({
         :prices="prices"
         :commodity-prices="commodityPrices"
         :freight-prices="freightPrices"
+        :margin-bounds="marginBounds"
+        :margin-error="marginError"
         :reference-price="referencePrice"
         :unit="unit"
       />

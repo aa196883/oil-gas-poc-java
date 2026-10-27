@@ -38,6 +38,28 @@ try {
   let countryRequests = 0
   const benchmarkRequests = []
   let failBenchmark = false
+  let failMargins = false
+  const boundaryRequests = []
+  const dates = ['2026-10-08', '2026-10-11', '2026-10-15', '2026-10-18', '2026-10-22']
+  // Non-proportional fixtures verify that the chart uses the returned series.
+  const fulfillBoundary = (route) => {
+    const url = new URL(route.request().url())
+    boundaryRequests.push({ path: url.pathname, ...Object.fromEntries(url.searchParams) })
+    const values =
+      Number(url.searchParams.get('proportion')) < 0 ? [54, 61, 59, 70, 72] : [82, 85, 91, 90, 103]
+    return route.fulfill({
+      status: failMargins ? 503 : 200,
+      contentType: 'application/json',
+      body: JSON.stringify(failMargins ? {} : dates.map((date, i) => ({ date, price: values[i] }))),
+    })
+  }
+  await page.route('**/api/series/*/ajusted-prices?*', fulfillBoundary)
+  await page.route('**/api/series/*/deltas?*', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify(dates.map((date) => ({ date, delta: 2 }))),
+    }),
+  )
   await page.route('**/api/geography/benchmark?*', (route) => {
     const params = Object.fromEntries(new URL(route.request().url()).searchParams)
     benchmarkRequests.push(params)
@@ -75,6 +97,8 @@ try {
           family: 'Crude Oil (Brut)',
           logic: 'POL',
           zone: 'Europe',
+          margins: [-0.15, 0.1],
+          marginsWithFreight: [-0.2, 0.15],
           isFret: false,
         },
         {
@@ -119,6 +143,7 @@ try {
   await page.route('**/api/series/*/prices-with-freight?*', (route) => {
     assert.equal(new URL(route.request().url()).pathname, '/api/series/1/prices-with-freight')
     assert.equal(new URL(route.request().url()).searchParams.get('freightId'), '5')
+    if (new URL(route.request().url()).searchParams.has('proportion')) return fulfillBoundary(route)
     assert.equal(new URL(route.request().url()).searchParams.get('unit'), 'USD/BBL')
     return route.fulfill({
       contentType: 'application/json',
@@ -152,7 +177,11 @@ try {
             { date: '2026-10-18', price: 74.7 },
             { date: '2026-10-22', price: 81.075 },
           ]
-    assert.ok(['/api/series/1/prices', '/api/series/5/prices'].includes(url.pathname))
+    assert.ok(
+      ['/api/series/1/prices', '/api/series/3/prices', '/api/series/5/prices'].includes(
+        url.pathname,
+      ),
+    )
     return route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify(prices),
@@ -329,6 +358,42 @@ try {
   assert.equal(await page.getByLabel('Show commodity price').isChecked(), false)
   assert.equal(await page.getByLabel('Show freight price').isChecked(), false)
   assert.equal(await page.getByLabel('Show quantiles').isChecked(), false)
+  const marginToggle = page.getByLabel('Show tolerated margins', { exact: true })
+  assert.equal(await marginToggle.isChecked(), false)
+  assert.deepEqual(boundaryRequests.map((request) => request.proportion).sort(), ['-0.2', '0.15'])
+  assert.ok(
+    boundaryRequests.every((request) => request.freightId === '5' && request.unit === 'USD/BBL'),
+  )
+  const readBand = () =>
+    page.evaluate(async () => {
+      const source = await (await fetch('/src/components/PriceChart.vue')).text()
+      const moduleUrl = source.match(/from ["']([^"']*echarts[^"']*)["']/)[1]
+      const echarts = await import(moduleUrl)
+      return echarts
+        .getInstanceByDom(document.querySelector('.chart'))
+        .getOption()
+        .series.find((series) => series.name === 'Tolerated margins').data
+    })
+  assert.deepEqual(await readBand(), [])
+  await marginToggle.check()
+  await page.waitForTimeout(400)
+  const band = await readBand()
+  assert.equal(band.length, 4)
+  assert.deepEqual(band[0], [
+    Date.parse(dates[0] + 'T12:00:00Z'),
+    54,
+    82,
+    Date.parse(dates[1] + 'T12:00:00Z'),
+    61,
+    85,
+  ])
+  await page.mouse.move(0, 0)
+  await page.locator('.chart-container').screenshot({
+    path: new URL('../artifacts/margins-freight.png', import.meta.url).pathname,
+  })
+  await marginToggle.uncheck()
+  assert.deepEqual(await readBand(), [])
+  await marginToggle.check()
   await page.getByLabel('Show commodity price').check()
   await page.getByLabel('Show freight price').check()
   await page.getByLabel('Show quantiles').check()
@@ -389,6 +454,36 @@ try {
     path: new URL('../artifacts/quantiles-narrow.png', import.meta.url).pathname,
     fullPage: true,
   })
+  await page.getByLabel('Incoterms').selectOption('FOB')
+  boundaryRequests.length = 0
+  await page.getByRole('button', { name: 'Analyze prices' }).click()
+  await marginToggle.waitFor()
+  assert.equal(await marginToggle.isChecked(), false)
+  assert.deepEqual(boundaryRequests.map((request) => request.proportion).sort(), ['-0.15', '0.1'])
+  assert.ok(
+    boundaryRequests.every(
+      (request) => request.path === '/api/series/1/ajusted-prices' && !request.freightId,
+    ),
+  )
+  await marginToggle.check()
+  await page.waitForTimeout(400)
+  assert.equal((await readBand()).length, 4)
+  await page.mouse.move(0, 0)
+  await page.locator('.chart-container').screenshot({
+    path: new URL('../artifacts/margins-narrow.png', import.meta.url).pathname,
+  })
+  failMargins = true
+  await page.getByRole('button', { name: 'Analyze prices' }).click()
+  await page.getByRole('status').filter({ hasText: 'Could not load tolerated margins' }).waitFor()
+  assert.equal(await marginToggle.isDisabled(), true)
+  assert.deepEqual(await readBand(), [])
+  failMargins = false
+  await page.getByLabel('Commodity series').selectOption('3')
+  boundaryRequests.length = 0
+  await page.getByRole('button', { name: 'Analyze prices' }).click()
+  await page.getByRole('status').filter({ hasText: 'unavailable for this series' }).waitFor()
+  assert.equal(await marginToggle.isDisabled(), true)
+  assert.equal(boundaryRequests.length, 0)
   console.log(`Screenshot saved to ${outputPath.pathname}`)
 } finally {
   await browser?.close()

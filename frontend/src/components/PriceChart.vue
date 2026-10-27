@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import * as echarts from 'echarts'
 
 const props = defineProps({
@@ -7,6 +7,8 @@ const props = defineProps({
   prices: { type: Array, required: true },
   commodityPrices: { type: Array, required: true },
   freightPrices: { type: Array, required: true },
+  marginBounds: { type: Array, default: () => [] },
+  marginError: { type: String, default: null },
   unit: { type: String, required: true },
   referencePrice: { type: Number, required: true },
 })
@@ -16,12 +18,43 @@ const showDeltas = ref(true)
 const showCommodityPrices = ref(false)
 const showFreightPrices = ref(false)
 const showQuantiles = ref(false)
+const showMargins = ref(false)
+// Join the returned boundaries by date, independently of market prices or proportions.
+const boundaryPoints = computed(() => {
+  const [lower = [], upper = []] = props.marginBounds
+  const upperByDate = new Map(upper.map((point) => [point.date, point.price]))
+  return lower
+    .map((point) => ({
+      time: Date.parse(point.date + 'T12:00:00Z'),
+      lower: point.price == null ? NaN : Number(point.price),
+      upper: upperByDate.get(point.date) == null ? NaN : Number(upperByDate.get(point.date)),
+    }))
+    .sort((a, b) => a.time - b.time)
+})
+const boundarySegments = computed(() =>
+  boundaryPoints.value.slice(1).flatMap((point, index) => {
+    const previous = boundaryPoints.value[index]
+    return [
+      previous.time,
+      previous.lower,
+      previous.upper,
+      point.time,
+      point.lower,
+      point.upper,
+    ].every(Number.isFinite)
+      ? [[previous, point]]
+      : []
+  }),
+)
+const hasMargins = computed(() => boundarySegments.value.length > 0)
 const quantileLabels = ref([])
 const layerHelp = {
   commodity: 'Shows the commodity price before freight is added.',
   freight: 'Shows the freight price separately in the selected unit.',
   differences: 'Shows the difference between each market price and the declared price.',
   quantiles: 'Shows historical price percentiles and their shaded ranges.',
+  margins:
+    'Shows the tolerated price range between the two boundary series returned by the server.',
 }
 
 const quantileLevels = [0.05, 0.25, 0.5, 0.75, 0.95]
@@ -92,6 +125,9 @@ function updateChart() {
     ...(showCommodityPrices.value ? commodityPoints.map((point) => point.price) : []),
     ...(showFreightPrices.value ? freightPoints.map((point) => point.price) : []),
     ...(showQuantiles.value ? Object.values(quantiles) : []),
+    ...(showMargins.value
+      ? boundarySegments.value.flat(1).flatMap((point) => [point.lower, point.upper])
+      : []),
   ]
   const min = Math.min(...values)
   const max = Math.max(...values)
@@ -171,6 +207,37 @@ function updateChart() {
     },
 
     series: [
+      {
+        name: 'Tolerated margins',
+        type: 'custom',
+        coordinateSystem: 'cartesian2d',
+        silent: true,
+        z: 1,
+        renderItem(params, api) {
+          const polygon = [
+            api.coord([api.value(0), api.value(1)]),
+            api.coord([api.value(3), api.value(4)]),
+            api.coord([api.value(3), api.value(5)]),
+            api.coord([api.value(0), api.value(2)]),
+          ]
+          const clipped = echarts.graphic.clipPointsByRect(polygon, params.coordSys)
+          return {
+            type: 'polygon',
+            shape: { points: clipped },
+            style: { fill: 'rgba(34, 197, 94, 0.24)' },
+          }
+        },
+        data: showMargins.value
+          ? boundarySegments.value.map(([a, b]) => [
+              a.time,
+              a.lower,
+              a.upper,
+              b.time,
+              b.lower,
+              b.upper,
+            ])
+          : [],
+      },
       {
         name: 'Differences',
         type: 'custom',
@@ -345,6 +412,8 @@ watch(
     showCommodityPrices.value,
     showFreightPrices.value,
     showQuantiles.value,
+    showMargins.value,
+    props.marginBounds,
   ],
   updateChart,
 )
@@ -353,6 +422,16 @@ watch(
 <template>
   <div class="chart-container">
     <div class="chart-toolbar">
+      <label>
+        <input
+          v-model="showMargins"
+          type="checkbox"
+          aria-label="Show tolerated margins"
+          :disabled="!hasMargins"
+        />
+        Show tolerated margins
+        <span class="help-popup" role="tooltip">{{ layerHelp.margins }}</span>
+      </label>
       <label v-if="commodityPrices.length > 0">
         <input v-model="showCommodityPrices" type="checkbox" aria-label="Show commodity price" />
         Show commodity price
@@ -375,6 +454,9 @@ watch(
       </label>
     </div>
 
+    <p v-if="marginError || !hasMargins" class="margin-status" role="status">
+      {{ marginError || 'No matching boundary dates are available for tolerated margins.' }}
+    </p>
     <div class="chart-frame">
       <div ref="chartElement" class="chart"></div>
       <div
@@ -398,6 +480,17 @@ watch(
 </template>
 
 <style scoped>
+.margin-swatch {
+  width: 14px;
+  height: 10px;
+  background: rgba(34, 197, 94, 0.24);
+  border: 1px solid #22c55e;
+  border-radius: 2px;
+}
+.margin-status {
+  color: #64748b;
+  font-size: 13px;
+}
 .chart-container {
   width: 100%;
 }

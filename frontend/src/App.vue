@@ -28,6 +28,8 @@ const deltas = ref([])
 const prices = ref([])
 const commodityPrices = ref([])
 const freightPrices = ref([])
+const marginBounds = ref([])
+const marginError = ref(null)
 const resultReferencePrice = ref(0)
 const resultUnit = ref('')
 const units = computed(() =>
@@ -119,6 +121,8 @@ async function analyze() {
   prices.value = []
   commodityPrices.value = []
   freightPrices.value = []
+  marginBounds.value = []
+  marginError.value = null
   try {
     const { unit } = operation.value
     const price = Number(operation.value.referencePrice)
@@ -144,6 +148,33 @@ async function analyze() {
       selectedFretSeriesId.value !== null
     const deltaParams = new URLSearchParams(params)
     deltaParams.set('referencePrice', referencePrice)
+
+    const selectedSeries = series.value.find((item) => item.id === selectedSeriesId.value)
+    const margins = includeFreight ? selectedSeries?.marginsWithFreight : selectedSeries?.margins
+    const boundsRequest =
+      Array.isArray(margins) &&
+      margins.length === 2 &&
+      margins.every((value) => typeof value === 'number' && Number.isFinite(value))
+        ? Promise.all(
+            margins.map(async (proportion) => {
+              const boundaryParams = new URLSearchParams(params)
+              boundaryParams.set('proportion', proportion)
+              if (includeFreight) boundaryParams.set('freightId', selectedFretSeriesId.value)
+              const endpoint = includeFreight ? 'prices-with-freight' : 'ajusted-prices'
+              const response = await fetch(
+                `/api/series/${selectedSeriesId.value}/${endpoint}?${boundaryParams}`,
+              )
+              if (!response.ok)
+                throw new Error(
+                  'Could not load tolerated margins. Run the analysis again to retry.',
+                )
+              return response.json()
+            }),
+          ).then(
+            (bounds) => ({ bounds }),
+            (err) => ({ error: err.message }),
+          )
+        : Promise.resolve({ error: 'Tolerated margins are unavailable for this series.' })
 
     let responses
     if (includeFreight) {
@@ -179,6 +210,9 @@ async function analyze() {
       prices.value = pricePoints
       deltas.value = deltaPoints
     }
+    const boundaryResult = await boundsRequest
+    marginBounds.value = boundaryResult.bounds ?? []
+    marginError.value = boundaryResult.error ?? null
     resultReferencePrice.value = referencePrice
     resultUnit.value = unit
   } catch (err) {
@@ -225,6 +259,8 @@ onMounted(loadSeries)
       :prices="prices"
       :commodity-prices="commodityPrices"
       :freight-prices="freightPrices"
+      :margin-bounds="marginBounds"
+      :margin-error="marginError"
       :reference-price="resultReferencePrice"
       :unit="resultUnit"
       :analyzing="analyzing"
