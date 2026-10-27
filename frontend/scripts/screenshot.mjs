@@ -46,7 +46,7 @@ try {
     const url = new URL(route.request().url())
     boundaryRequests.push({ path: url.pathname, ...Object.fromEntries(url.searchParams) })
     const values =
-      Number(url.searchParams.get('proportion')) < 0 ? [54, 61, 59, 70, 72] : [82, 85, 91, 90, 103]
+      Number(url.searchParams.get('proportion')) < 0 ? [54, 61, 59, 75, 78] : [82, 85, 74, 90, 103]
     return route.fulfill({
       status: failMargins ? 503 : 200,
       contentType: 'application/json',
@@ -374,9 +374,28 @@ try {
         .getOption()
         .series.find((series) => series.name === 'Tolerated margins').data
     })
+  const readDifferenceColors = () =>
+    page.evaluate(async () => {
+      const source = await (await fetch('/src/components/PriceChart.vue')).text()
+      const echarts = await import(source.match(/from ["']([^"']*echarts[^"']*)["']/)[1])
+      const chart = echarts.getInstanceByDom(document.querySelector('.chart'))
+      const model = chart
+        .getModel()
+        .getSeries()
+        .find((series) => series.name === 'Differences')
+      const data = model.getData()
+      return Array.from(
+        { length: data.count() },
+        (_, index) => data.getItemGraphicEl(index).style.stroke,
+      )
+    })
+  // Declared price is 75: inside, inside, above, exactly on lower bound, below.
+  const expectedColors = ['#22c55e', '#22c55e', '#ef4444', '#22c55e', '#ef4444']
+  assert.deepEqual(await readDifferenceColors(), expectedColors)
   assert.deepEqual(await readBand(), [])
   await marginToggle.check()
   await page.waitForTimeout(400)
+  assert.deepEqual(await readDifferenceColors(), expectedColors)
   const band = await readBand()
   assert.equal(band.length, 4)
   assert.deepEqual(band[0], [
@@ -476,6 +495,7 @@ try {
   await page.getByRole('button', { name: 'Analyze prices' }).click()
   await page.getByRole('status').filter({ hasText: 'Could not load tolerated margins' }).waitFor()
   assert.equal(await marginToggle.isDisabled(), true)
+  assert.deepEqual(await readDifferenceColors(), Array(5).fill('#ef4444'))
   assert.deepEqual(await readBand(), [])
   failMargins = false
   await page.getByLabel('Commodity series').selectOption('3')

@@ -51,25 +51,33 @@ const quantileLabels = ref([])
 const layerHelp = {
   commodity: 'Shows the commodity price before freight is added.',
   freight: 'Shows the freight price separately in the selected unit.',
-  differences: 'Shows the difference between each market price and the declared price.',
+  differences:
+    'Compares the declared price with the boundary prices on each date: green within bounds (inclusive), red outside or when bounds are unavailable.',
   quantiles: 'Shows historical price percentiles and their shaded ranges.',
   margins:
-    'Shows the tolerated price range between the two boundary series returned by the server.',
+    'Shows the tolerated price range for the commodity.',
 }
 
 const quantileLevels = [0.05, 0.25, 0.5, 0.75, 0.95]
 
 let chart = null
 
-function deltaColor(delta) {
-  const value = Math.abs(delta)
+const boundariesByTime = computed(
+  () => new Map(boundaryPoints.value.map((point) => [point.time, point])),
+)
 
-  if (value <= 5) return '#22c55e'
-  if (value >= 15) return '#ef4444'
+function deltaColor(time) {
+  const bounds = boundariesByTime.value.get(time)
+  const price = props.referencePrice
+  const withinBounds =
+    bounds &&
+    Number.isFinite(bounds.lower) &&
+    Number.isFinite(bounds.upper) &&
+    Number.isFinite(price) &&
+    price >= Math.min(bounds.lower, bounds.upper) &&
+    price <= Math.max(bounds.lower, bounds.upper)
 
-  const t = (value - 5) / 10
-
-  return echarts.color.lerp(t, ['#22c55e', '#f59e0b', '#ef4444'])
+  return withinBounds ? '#22c55e' : '#ef4444'
 }
 
 function computeQuantiles(prices) {
@@ -247,7 +255,6 @@ function updateChart() {
 
         renderItem(params, api) {
           const time = api.value(0)
-          const delta = api.value(1)
           const price = api.value(2)
 
           const start = api.coord([time, reference])
@@ -262,7 +269,7 @@ function updateChart() {
               y2: end[1],
             },
             style: {
-              stroke: deltaColor(delta),
+              stroke: deltaColor(time),
               lineWidth: 4,
               opacity: 0.8,
             },
