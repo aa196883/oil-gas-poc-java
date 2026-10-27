@@ -14,7 +14,7 @@ const operation = ref({
   incoterms: 'FOB',
   origin: 'Oman',
   destination: 'France',
-  shippedOnBoard: '2026-10-15',
+  shippedOnBoard: '2026-07-15',
   referencePrice: 550,
   quantity: 1,
   unit: '',

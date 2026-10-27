@@ -275,23 +275,23 @@ function updateChart() {
               label: { show: false },
               data: [
                 [
-                  { yAxis: axisMin, itemStyle: { color: 'rgba(239, 68, 68, 0.09)' } },
+                  { yAxis: axisMin, itemStyle: { color: 'rgba(104, 143, 229, 0.2)' } },
                   { yAxis: quantiles[0.05] },
                 ],
                 [
-                  { yAxis: quantiles[0.95], itemStyle: { color: 'rgba(239, 68, 68, 0.09)' } },
+                  { yAxis: quantiles[0.95], itemStyle: { color: 'rgba(104, 143, 229, 0.2)' } },
                   { yAxis: axisMax },
                 ],
                 [
-                  { yAxis: quantiles[0.05], itemStyle: { color: 'rgba(245, 158, 11, 0.09)' } },
+                  { yAxis: quantiles[0.05], itemStyle: { color: 'rgba(122, 189, 229, 0.2)' } },
                   { yAxis: quantiles[0.25] },
                 ],
                 [
-                  { yAxis: quantiles[0.25], itemStyle: { color: 'rgba(34, 197, 94, 0.09)' } },
+                  { yAxis: quantiles[0.25], itemStyle: { color: 'rgba(149, 228, 229, 0.2)' } },
                   { yAxis: quantiles[0.75] },
                 ],
                 [
-                  { yAxis: quantiles[0.75], itemStyle: { color: 'rgba(245, 158, 11, 0.09)' } },
+                  { yAxis: quantiles[0.75], itemStyle: { color: 'rgba(122, 189, 229, 0.2)' } },
                   { yAxis: quantiles[0.95] },
                 ],
               ],
