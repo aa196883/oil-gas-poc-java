@@ -28,7 +28,7 @@ class SeriesControllerTest {
         )).setControllerAdvice(new GlobalExceptionHandler()).build();
 
         when(repository.findAll()).thenReturn(List.of(
-            new SeriesSummary(1L, "wti", null, "test", null, "USD", "USD/BBL", "Crude Oil", false, "POL", "USA"),
+            new SeriesSummary(1L, "wti", null, "test", null, "USD", "USD/BBL", "Crude Oil (Brut)", false, "POL", "Amériques"),
             new SeriesSummary(2L, "freight", null, "test", null, "USD", "USD/MT", "Freight", true, "POD", "Europe")
         ));
 
@@ -55,7 +55,13 @@ class SeriesControllerTest {
             .andExpect(jsonPath("$[1].isFret").value(true))
             .andExpect(jsonPath("$[0].logic").value("POL"))
             .andExpect(jsonPath("$[1].logic").value("POD"))
-            .andExpect(jsonPath("$[0].zone").value("USA"))
+            .andExpect(jsonPath("$[0].zone").value("Amériques"))
+            .andExpect(jsonPath("$[0].margins[0]").value(-0.15))
+            .andExpect(jsonPath("$[0].margins[1]").value(0.10))
+            .andExpect(jsonPath("$[0].marginsWithFreight[0]").value(-0.20))
+            .andExpect(jsonPath("$[0].marginsWithFreight[1]").value(0.15))
+            .andExpect(jsonPath("$[1].margins").value(org.hamcrest.Matchers.nullValue()))
+            .andExpect(jsonPath("$[1].marginsWithFreight").value(org.hamcrest.Matchers.nullValue()))
             .andExpect(jsonPath("$[1].zone").value("Europe"));
     }
 

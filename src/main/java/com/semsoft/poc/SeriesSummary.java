@@ -1,6 +1,7 @@
 package com.semsoft.poc;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public record SeriesSummary(
 
@@ -37,4 +38,18 @@ public record SeriesSummary(
     @Schema(description = "Geographical zone", example = "Europe")
     String zone
 
-) {}
+) {
+    @JsonProperty("margins")
+    @Schema(description = "Lower and upper tolerated proportions without freight; null when unavailable", example = "[-0.15, 0.10]")
+    public double[] margins() {
+        return family == null || zone == null ? null
+            : ToleratedMargins.getCommodityMargins(family, zone);
+    }
+
+    @JsonProperty("marginsWithFreight")
+    @Schema(description = "Lower and upper tolerated proportions with freight; null when unavailable", example = "[-0.20, 0.15]")
+    public double[] marginsWithFreight() {
+        return family == null || zone == null ? null
+            : ToleratedMargins.getCommodityMarginsWithFreight(family, zone);
+    }
+}
