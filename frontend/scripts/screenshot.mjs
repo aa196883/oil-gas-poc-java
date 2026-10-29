@@ -44,6 +44,8 @@ try {
   const commodityValues = [63.85, 67.2, 70.35, 74.7, 81.075]
   const marketValues = [68.85, 73.2, 76.35, 80.7, 87.075]
   const toPoints = (values) => dates.map((date, i) => ({ date, price: values[i] }))
+  let expectedPremium = 0
+  const adjusted = (values) => toPoints(values.map((value) => value + expectedPremium))
   const transformRequests = []
   const deltaRequests = []
   const removedRequests = []
@@ -60,18 +62,26 @@ try {
     transformRequests.push(body)
     assert.equal(body.operations.length, 1)
     const operation = body.operations[0]
-    if (operation.type === 'ADD_FREIGHT') {
+    if (operation.type === 'ADD') {
       assert.deepEqual(body.prices, toPoints(commodityValues))
+      assert.equal(operation.value, expectedPremium)
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify(adjusted(commodityValues)),
+      })
+    }
+    if (operation.type === 'ADD_FREIGHT') {
+      assert.deepEqual(body.prices, adjusted(commodityValues))
       assert.equal(operation.prices[0].date, '2026-10-07')
       return route.fulfill({
         contentType: 'application/json',
-        body: JSON.stringify(toPoints(marketValues)),
+        body: JSON.stringify(adjusted(marketValues)),
       })
     }
     assert.equal(operation.type, 'MULTIPLY')
     boundaryRequests.push(body)
-    const withFreight = body.prices[0].price === marketValues[0]
-    assert.deepEqual(body.prices, toPoints(withFreight ? marketValues : commodityValues))
+    const withFreight = body.prices[0].price === marketValues[0] + expectedPremium
+    assert.deepEqual(body.prices, adjusted(withFreight ? marketValues : commodityValues))
     assert.ok((withFreight ? [0.8, 1.15] : [0.85, 1.1]).includes(operation.value))
     // Non-proportional responses verify that chart boundaries remain server-supplied.
     const values = operation.value < 1 ? [54, 61, 59, 75, 78] : [82, 85, 74, 90, 103]
@@ -86,8 +96,8 @@ try {
     const body = route.request().postDataJSON()
     deltaRequests.push(body)
     assert.equal(body.referencePrice, 75)
-    const withFreight = body.prices[0].price === marketValues[0]
-    assert.deepEqual(body.prices, toPoints(withFreight ? marketValues : commodityValues))
+    const withFreight = body.prices[0].price === marketValues[0] + expectedPremium
+    assert.deepEqual(body.prices, adjusted(withFreight ? marketValues : commodityValues))
     return route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify(
@@ -539,6 +549,44 @@ try {
   await page.getByRole('status').filter({ hasText: 'unavailable for this series' }).waitFor()
   assert.equal(await marginToggle.isDisabled(), true)
   assert.equal(boundaryRequests.length, 0)
+  assert.equal(
+    transformRequests.some((request) => request.operations[0].type === 'ADD'),
+    false,
+  )
+  await page.getByLabel('Commodity series').selectOption('1')
+  const premiumInput = page.getByLabel('Premium / discount', { exact: true })
+  assert.equal(await premiumInput.inputValue(), '0')
+  await page.getByLabel('Price unit', { exact: true }).selectOption('EUR')
+  assert.match(await premiumInput.locator('..').textContent(), /EUR\/BBL/)
+  await page.getByLabel('Price unit', { exact: true }).selectOption('USD')
+  assert.match(await premiumInput.locator('..').textContent(), /USD\/BBL/)
+  for (const [amount, incoterm] of [
+    [2.5, 'FOB'],
+    [-3, 'CFR'],
+  ]) {
+    expectedPremium = amount
+    await premiumInput.fill(String(amount))
+    await page.getByLabel('Incoterms').selectOption(incoterm)
+    if (incoterm === 'CFR') await page.getByLabel('Fret series').selectOption('5')
+    transformRequests.length = 0
+    await page.getByRole('button', { name: 'Analyze prices' }).click()
+    await marginToggle.waitFor()
+    assert.deepEqual(
+      transformRequests.map((request) => request.operations[0].type),
+      incoterm === 'CFR'
+        ? ['ADD', 'ADD_FREIGHT', 'MULTIPLY', 'MULTIPLY']
+        : ['ADD', 'MULTIPLY', 'MULTIPLY'],
+    )
+    assert.deepEqual(
+      deltaRequests.at(-1).prices,
+      adjusted(incoterm === 'CFR' ? marketValues : commodityValues),
+    )
+  }
+  await page.mouse.move(0, 0)
+  await page.screenshot({
+    path: new URL('../artifacts/premium-discount.png', import.meta.url).pathname,
+    fullPage: true,
+  })
   assert.deepEqual(removedRequests, [])
   console.log(`Screenshot saved to ${outputPath.pathname}`)
 } finally {

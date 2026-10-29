@@ -6,6 +6,8 @@ defineProps({
   showFret: { type: Boolean, required: true },
   selectedSeriesId: { type: Number, default: null },
   windowDays: { type: Number, required: true },
+  premium: { type: Number, default: 0 },
+  unit: { type: String, required: true },
   loading: { type: Boolean, required: true },
   error: { type: String, default: null },
   startDate: { type: String, required: true },
@@ -16,6 +18,7 @@ defineEmits([
   'update:selectedSeriesId',
   'update:selectedFretSeriesId',
   'update:windowDays',
+  'update:premium',
   'analyze',
 ])
 </script>
@@ -58,6 +61,18 @@ defineEmits([
           <option :value="15">±15 days</option>
           <option :value="30">±30 days</option>
         </select>
+      </label>
+      <label class="field">
+        Premium / discount ({{ unit }})
+        <input
+          type="number"
+          step="any"
+          aria-label="Premium / discount"
+          :value="premium"
+          @input="
+            $emit('update:premium', $event.target.value === '' ? 0 : Number($event.target.value))
+          "
+        />
       </label>
     </div>
     <p class="period">Analyzed period: {{ startDate }} to {{ endDate }}</p>

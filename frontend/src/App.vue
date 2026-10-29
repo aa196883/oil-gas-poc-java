@@ -24,6 +24,7 @@ const fretSeries = computed(() => series.value.filter((item) => item.isFret))
 const selectedFretSeriesId = ref(null)
 const selectedSeriesId = ref(null)
 const windowDays = ref(15)
+const premium = ref(0)
 const deltas = ref([])
 const prices = ref([])
 const commodityPrices = ref([])
@@ -125,6 +126,8 @@ async function analyze() {
   marginError.value = null
   try {
     const { unit } = operation.value
+    const adjustment = Number(premium.value)
+    if (!Number.isFinite(adjustment)) throw new Error('Enter a valid premium or discount.')
     const price = Number(operation.value.referencePrice)
     const quantity = Number(operation.value.quantity)
     const referencePrice = price / quantity
@@ -163,12 +166,16 @@ async function analyze() {
     // Include earlier quotations so ADD_FREIGHT can carry the last known value forward.
     const freightParams = new URLSearchParams(params)
     freightParams.set('start', '0001-01-01')
-    const [commodityPoints, freightPoints] = await Promise.all([
+    const [rawCommodityPoints, freightPoints] = await Promise.all([
       fetch(`/api/series/${selectedSeriesId.value}/prices?${params}`).then(readJson),
       includeFreight
         ? fetch(`/api/series/${selectedFretSeriesId.value}/prices?${freightParams}`).then(readJson)
         : Promise.resolve([]),
     ])
+    const commodityPoints =
+      adjustment === 0
+        ? rawCommodityPoints
+        : await transform(rawCommodityPoints, [{ type: 'ADD', value: adjustment }])
     const pricePoints = includeFreight
       ? await transform(commodityPoints, [{ type: 'ADD_FREIGHT', prices: freightPoints }])
       : commodityPoints
@@ -234,6 +241,8 @@ onMounted(loadSeries)
     <AnalysisParameters
       v-model:selected-series-id="selectedSeriesId"
       v-model:window-days="windowDays"
+      v-model:premium="premium"
+      :unit="operation.unit"
       v-model:selected-fret-series-id="selectedFretSeriesId"
       :series="commoditySeries"
       :fret-series="fretSeries"
