@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import * as echarts from 'echarts'
+import AdditionalInformation from './AdditionalInformation.vue'
 
 const props = defineProps({
   deltas: { type: Array, required: true },
@@ -17,6 +18,12 @@ const chartElement = ref(null)
 const showDeltas = ref(true)
 const showCommodityPrices = ref(false)
 const showQuantiles = ref(false)
+const showMean = ref(false)
+const mean = computed(() =>
+  props.prices.length
+    ? props.prices.reduce((sum, point) => sum + Number(point.price), 0) / props.prices.length
+    : null,
+)
 const showMargins = ref(false)
 // Join the returned boundaries by date, independently of market prices or proportions.
 const boundaryPoints = computed(() => {
@@ -46,11 +53,12 @@ const boundarySegments = computed(() =>
   }),
 )
 const hasMargins = computed(() => boundarySegments.value.length > 0)
-const quantileLabels = ref([])
+const lineLabels = ref([])
 const layerHelp = {
   commodity: 'Shows the commodity price before freight is added.',
   differences:
     'Compares the declared price with the boundary prices on each date: green within bounds (inclusive), red outside or when bounds are unavailable.',
+  mean: 'Shows the average of the analyzed prices, including applied adjustments and freight.',
   quantiles: 'Shows historical price percentiles and their shaded ranges.',
   margins: 'Shows the tolerated price range for the commodity.',
 }
@@ -140,19 +148,32 @@ function updateChart() {
   const axisMin = Math.floor(min - padding)
   const axisMax = Math.ceil(max + padding)
   const plotHeight = chart.getHeight() - 100
+  // Lay out all reference labels together so coincident values remain readable.
+  const labels = [
+    { key: 'declared', title: 'Declared price', value: reference, color: '#475569' },
+    ...(showMean.value && mean.value !== null
+      ? [{ key: 'mean', title: 'Average Price', value: mean.value, color: '#b45309' }]
+      : []),
+    ...(showQuantiles.value && props.prices.length
+      ? quantileLevels.map((q) => ({
+          key: String(q),
+          q,
+          title: 'Q' + String(q * 100).padStart(2, '0'),
+          value: quantiles[q],
+          color: '#64748b',
+        }))
+      : []),
+  ].sort((a, b) => b.value - a.value)
   let previousTop = 31
-  quantileLabels.value =
-    showQuantiles.value && props.prices.length
-      ? [...quantileLevels].reverse().map((q) => {
-          const idealTop = 45 + ((axisMax - quantiles[q]) / (axisMax - axisMin)) * plotHeight
-          const top = Math.max(idealTop, previousTop + 28)
-          previousTop = top
-          return { q, value: quantiles[q].toFixed(2), top }
-        })
-      : []
-  const overflow = (quantileLabels.value.at(-1)?.top ?? 0) - (chart.getHeight() - 55)
+  lineLabels.value = labels.map((label) => {
+    const idealTop = 45 + ((axisMax - label.value) / (axisMax - axisMin)) * plotHeight
+    const top = Math.max(idealTop, previousTop + 28)
+    previousTop = top
+    return { ...label, value: label.value.toFixed(2), top, idealTop }
+  })
+  const overflow = (lineLabels.value.at(-1)?.top ?? 0) - (chart.getHeight() - 55)
   if (overflow > 0)
-    quantileLabels.value.forEach((label) => {
+    lineLabels.value.forEach((label) => {
       label.top -= overflow
     })
 
@@ -161,7 +182,7 @@ function updateChart() {
 
     grid: {
       top: 45,
-      right: showQuantiles.value ? 170 : 35,
+      right: 260,
       bottom: 55,
       left: 75,
     },
@@ -296,12 +317,7 @@ function updateChart() {
           silent: true,
           symbol: 'none',
           animation: false,
-          label: {
-            show: true,
-            position: 'insideEndTop',
-            formatter: `Declared price: ${reference.toFixed(2)} ${props.unit}`,
-            color: '#475569',
-          },
+          label: { show: false },
           lineStyle: {
             color: '#475569',
             width: 2,
@@ -320,6 +336,24 @@ function updateChart() {
         data: showCommodityPrices.value
           ? commodityPoints.map((point) => [point.time, point.price])
           : [],
+      },
+      {
+        name: 'Average price',
+        type: 'line',
+        silent: true,
+        data: [],
+        z: 5,
+        markLine:
+          showMean.value && mean.value !== null
+            ? {
+                silent: true,
+                symbol: 'none',
+                animation: false,
+                label: { show: false },
+                lineStyle: { color: '#b45309', width: 2, type: 'dotted' },
+                data: [{ yAxis: mean.value }],
+              }
+            : undefined,
       },
       {
         name: 'Quantiles',
@@ -403,6 +437,7 @@ watch(
     showDeltas.value,
     showCommodityPrices.value,
     showQuantiles.value,
+    showMean.value,
     showMargins.value,
     props.marginBounds,
   ],
@@ -412,54 +447,78 @@ watch(
 
 <template>
   <div class="chart-container">
-    <div class="chart-toolbar">
-      <label>
-        <input
-          v-model="showMargins"
-          type="checkbox"
-          aria-label="Show tolerated margins"
-          :disabled="!hasMargins"
-        />
-        Show tolerated margins
-        <span class="help-popup" role="tooltip">{{ layerHelp.margins }}</span>
-      </label>
-      <label v-if="commodityPrices.length > 0">
-        <input v-model="showCommodityPrices" type="checkbox" aria-label="Show commodity price" />
-        Show commodity price
-        <span class="help-popup" role="tooltip">{{ layerHelp.commodity }}</span>
-      </label>
-      <label>
-        <input v-model="showDeltas" type="checkbox" aria-label="Show differences (%)" />
-        Show differences (%)
-        <span class="help-popup" role="tooltip">{{ layerHelp.differences }}</span>
-      </label>
-      <label>
-        <input v-model="showQuantiles" type="checkbox" aria-label="Show quantiles" />
-        Show quantiles
-        <span class="help-popup" role="tooltip">{{ layerHelp.quantiles }}</span>
-      </label>
+    <div class="results-toolbar">
+      <AdditionalInformation :mean="mean" :reference-price="referencePrice" :unit="unit" />
+      <div class="chart-toolbar">
+        <label>
+          <input
+            v-model="showMargins"
+            type="checkbox"
+            aria-label="Show tolerated margins"
+            :disabled="!hasMargins"
+          />
+          Show tolerated margins
+          <span class="help-popup" role="tooltip">{{ layerHelp.margins }}</span>
+        </label>
+        <label v-if="commodityPrices.length > 0">
+          <input v-model="showCommodityPrices" type="checkbox" aria-label="Show commodity price" />
+          Show commodity price
+          <span class="help-popup" role="tooltip">{{ layerHelp.commodity }}</span>
+        </label>
+        <label>
+          <input v-model="showDeltas" type="checkbox" aria-label="Show differences (%)" />
+          Show differences (%)
+          <span class="help-popup" role="tooltip">{{ layerHelp.differences }}</span>
+        </label>
+        <label>
+          <input v-model="showQuantiles" type="checkbox" aria-label="Show quantiles" />
+          Show quantiles
+          <span class="help-popup" role="tooltip">{{ layerHelp.quantiles }}</span>
+        </label>
+        <label>
+          <input v-model="showMean" type="checkbox" aria-label="Show average price" />
+          Show average price
+          <span class="help-popup" role="tooltip">{{ layerHelp.mean }}</span>
+        </label>
+      </div>
     </div>
 
     <p v-if="marginError || !hasMargins" class="margin-status" role="status">
       {{ marginError || 'No matching boundary dates are available for tolerated margins.' }}
     </p>
-    <div class="chart-frame">
-      <div ref="chartElement" class="chart"></div>
-      <div
-        v-for="label in quantileLabels"
-        :key="label.q"
-        class="quantile-label"
-        :style="{ top: label.top + 'px' }"
-      >
-        <span>Q{{ String(label.q * 100).padStart(2, '0') }}: {{ label.value }}</span>
-        <span class="quantile-help">
-          <button type="button" :aria-label="'Explain Q' + String(label.q * 100).padStart(2, '0')">
-            ?
-          </button>
-          <span class="help-popup" role="tooltip">
-            {{ label.q * 100 }} percent of historical values below {{ label.value }}
+    <div class="chart-scroll">
+      <div class="chart-frame">
+        <div ref="chartElement" class="chart"></div>
+        <svg class="label-connectors" width="20" height="460" aria-hidden="true">
+          <path
+            v-for="label in lineLabels"
+            :key="label.key"
+            :d="'M0 ' + label.idealTop + ' L16 ' + label.top"
+            :stroke="label.color"
+            fill="none"
+            stroke-opacity="0.5"
+          />
+        </svg>
+        <div
+          v-for="label in lineLabels"
+          :key="label.key"
+          class="reference-label"
+          :class="{ 'quantile-label': label.q != null }"
+          :style="{ top: label.top + 'px', color: label.color }"
+        >
+          <span>{{ label.title }} : {{ label.value }}{{ label.q == null ? ' ' + unit : '' }}</span>
+          <span v-if="label.q != null" class="quantile-help">
+            <button
+              type="button"
+              :aria-label="'Explain Q' + String(label.q * 100).padStart(2, '0')"
+            >
+              ?
+            </button>
+            <span class="help-popup" role="tooltip">
+              {{ label.q * 100 }} percent of historical values below {{ label.value }}
+            </span>
           </span>
-        </span>
+        </div>
       </div>
     </div>
   </div>
@@ -481,11 +540,33 @@ watch(
   width: 100%;
 }
 
+.results-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+.chart-scroll {
+  overflow-x: auto;
+}
+.chart-frame {
+  min-width: 620px;
+}
+@media (max-width: 900px) {
+  .results-toolbar {
+    flex-direction: column;
+  }
+  .chart-toolbar {
+    justify-content: flex-start;
+  }
+}
 .chart-toolbar {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 16px;
+  gap: 12px 18px;
+  max-width: 520px;
   margin-bottom: 12px;
 }
 
@@ -509,10 +590,16 @@ watch(
 .chart-frame {
   position: relative;
 }
-.quantile-label {
+.label-connectors {
+  position: absolute;
+  top: 0;
+  right: 240px;
+  pointer-events: none;
+}
+.reference-label {
   position: absolute;
   right: 8px;
-  width: 150px;
+  width: 235px;
   transform: translateY(-50%);
   display: flex;
   align-items: center;

@@ -467,15 +467,21 @@ try {
   await marginToggle.check()
   await page.getByLabel('Show commodity price').check()
   await page.getByLabel('Show quantiles').check()
+  await page.getByLabel('Show average price').check()
+  await page.getByText('Average Price : 77.23 USD/BBL', { exact: true }).waitFor()
+  assert.match(await page.locator('.additional-information').textContent(), /77.23/)
+  assert.match(await page.locator('.additional-information').textContent(), /\+2.23/)
   await page.waitForTimeout(400)
   await page.getByLabel('Show differences (%)').uncheck()
   await page.getByLabel('Show differences (%)').check()
 
   await mkdir(new URL('../artifacts/', import.meta.url), { recursive: true })
+  await page.mouse.move(0, 0)
+  await page.locator(':focus').evaluateAll((elements) => elements.forEach((el) => el.blur()))
   await page.screenshot({ path: outputPath.pathname, fullPage: true })
   const labels = page.locator('.quantile-label')
   assert.equal(await labels.count(), 5)
-  const boxes = await labels.evaluateAll((elements) =>
+  const boxes = await page.locator('.reference-label').evaluateAll((elements) =>
     elements.map((el) => {
       const box = el.getBoundingClientRect()
       return { top: box.top, bottom: box.bottom, left: box.left, right: box.right }
@@ -483,7 +489,10 @@ try {
   )
   for (let i = 1; i < boxes.length; i += 1) assert.ok(boxes[i].top >= boxes[i - 1].bottom)
   const chartBox = await page.locator('.chart').boundingBox()
-  assert.ok(boxes.every((box) => box.left >= chartBox.x + chartBox.width - 170))
+  assert.ok(boxes.every((box) => box.left >= chartBox.x + chartBox.width - 260))
+  await page.getByLabel('Show average price').uncheck()
+  assert.equal(await page.getByText('Average Price : 77.23 USD/BBL', { exact: true }).count(), 0)
+  await page.getByLabel('Show average price').check()
   for (const name of ['Q05', 'Q25', 'Q50', 'Q75', 'Q95']) {
     await page.getByRole('button', { name: 'Explain ' + name, exact: true }).hover()
     assert.ok(

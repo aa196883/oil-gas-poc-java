@@ -38,6 +38,19 @@ public class AnalysisController {
         return deltaService.getDeltas(request.prices(), request.referencePrice());
     }
 
+    @Operation(summary = "Compute mean price",
+        description = "Computes the arithmetic mean, optionally including freight, in the requested unit.")
+    @GetMapping("/{id}/mean")
+    public BigDecimal getMean(
+        @PathVariable long id,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
+        @RequestParam String unit,
+        @RequestParam(required = false) Long freightId
+    ) {
+        return analysisService.getMean(id, start, end, unit, freightId);
+    }
+
     @Operation(
         summary = "Compute price quantiles",
         description = "Computes price quantiles, optionally including freight, in the requested unit."

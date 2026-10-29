@@ -34,6 +34,28 @@ class AnalysisControllerTest {
     }
 
     @Test
+    void shouldReturnMeanAndRejectEmptyPricesOrMissingParameters() throws Exception {
+        LocalDate date = LocalDate.of(2026, 1, 1);
+        when(seriesService.getPrices(1L, date, date, "USD/MT"))
+            .thenReturn(List.of(new PricePoint(date, new BigDecimal("10"))));
+        when(seriesService.getPrices(2L, LocalDate.of(1, 1, 1), date, "USD/MT"))
+            .thenReturn(List.of(new PricePoint(date, new BigDecimal("3"))));
+        for (boolean withFreight : new boolean[] {false, true}) {
+            var request = get("/api/analysis/1/mean").param("start", "2026-01-01")
+                .param("end", "2026-01-01").param("unit", "USD/MT");
+            if (withFreight) request.param("freightId", "2");
+            mvc.perform(request).andExpect(status().isOk())
+                .andExpect(jsonPath("$").value(withFreight ? 13 : 10));
+        }
+        when(seriesService.getPrices(1L, date, date, "USD/MT")).thenReturn(List.of());
+        mvc.perform(get("/api/analysis/1/mean").param("start", "2026-01-01")
+                .param("end", "2026-01-01").param("unit", "USD/MT"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
+        mvc.perform(get("/api/analysis/1/mean")).andExpect(status().isBadRequest());
+    }
+
+    @Test
     void shouldReturnQuantilesWithOptionalFreight() throws Exception {
         LocalDate start = LocalDate.of(2026, 1, 1);
         LocalDate end = LocalDate.of(2026, 1, 31);

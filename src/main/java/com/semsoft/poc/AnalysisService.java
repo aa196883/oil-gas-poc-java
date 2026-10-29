@@ -1,6 +1,7 @@
 package com.semsoft.poc;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
@@ -27,6 +28,31 @@ public class AnalysisService {
         String unit,
         Long freightId
     ) {
+        return computeQuantiles(getAnalysisPrices(seriesId, start, end, unit, freightId));
+    }
+
+    public BigDecimal getMean(
+        long seriesId,
+        LocalDate start,
+        LocalDate end,
+        String unit,
+        Long freightId
+    ) {
+        return computeMean(getAnalysisPrices(seriesId, start, end, unit, freightId));
+    }
+
+    public BigDecimal computeMean(List<PricePoint> prices) {
+        PriceService.validatePrices(prices);
+        if (prices.isEmpty()) {
+            throw new IllegalArgumentException("Cannot compute mean on empty prices");
+        }
+        return prices.stream().map(PricePoint::price).reduce(BigDecimal.ZERO, BigDecimal::add)
+            .divide(BigDecimal.valueOf(prices.size()), MathContext.DECIMAL128);
+    }
+
+    private List<PricePoint> getAnalysisPrices(
+        long seriesId, LocalDate start, LocalDate end, String unit, Long freightId
+    ) {
         List<PricePoint> prices = seriesService.getPrices(seriesId, start, end, unit);
         if (freightId != null) {
             List<PricePoint> freight = seriesService.getPrices(
@@ -37,7 +63,7 @@ public class AnalysisService {
             ));
         }
 
-        return computeQuantiles(prices);
+        return prices;
     }
 
     public Map<Double, BigDecimal> computeQuantiles(List<PricePoint> prices) {
