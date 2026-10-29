@@ -89,18 +89,6 @@ function analyze() {
           <option value="custom">Custom</option>
         </select>
       </label>
-      <label class="field">
-        Premium / discount ({{ unit }})
-        <input
-          type="number"
-          step="any"
-          aria-label="Premium / discount"
-          :value="premium"
-          @input="
-            $emit('update:premium', $event.target.value === '' ? 0 : Number($event.target.value))
-          "
-        />
-      </label>
       <template v-if="custom">
         <label class="field">
           Start date
@@ -126,6 +114,23 @@ function analyze() {
         </label>
       </template>
     </div>
+    <fieldset class="advanced-group">
+      <legend>Advanced</legend>
+      <div class="grid">
+        <label class="field">
+          Premium / discount ({{ unit }})
+          <input
+            type="number"
+            step="any"
+            aria-label="Premium / discount"
+            :value="premium"
+            @input="
+              $emit('update:premium', $event.target.value === '' ? 0 : Number($event.target.value))
+            "
+          />
+        </label>
+      </div>
+    </fieldset>
     <p v-if="dateError" id="custom-date-error" class="error" role="alert">{{ dateError }}</p>
     <p class="period">Analyzed period: {{ range.start || '—' }} to {{ range.end || '—' }}</p>
     <button
@@ -146,6 +151,20 @@ function analyze() {
 </template>
 
 <style scoped>
+.advanced-group {
+  min-width: 0;
+  margin: 20px 0 0;
+  padding: 16px;
+  border: 1px solid #e1e5ea;
+  border-radius: 6px;
+}
+.advanced-group legend {
+  padding: 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+}
+
 .period {
   margin: 24px 0;
   color: #64748b;
