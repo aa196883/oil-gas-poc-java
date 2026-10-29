@@ -1,5 +1,7 @@
 <script setup>
-defineProps({
+import { computed, ref } from 'vue'
+
+const props = defineProps({
   series: { type: Array, required: true },
   fretSeries: { type: Array, required: true },
   selectedFretSeriesId: { type: Number, default: null },
@@ -14,13 +16,40 @@ defineProps({
   endDate: { type: String, required: true },
   analyzing: { type: Boolean, required: true },
 })
-defineEmits([
+const emit = defineEmits([
   'update:selectedSeriesId',
   'update:selectedFretSeriesId',
   'update:windowDays',
   'update:premium',
   'analyze',
 ])
+const custom = ref(false)
+const customStart = ref('')
+const customEnd = ref('')
+const range = computed(() => ({
+  start: custom.value ? customStart.value : props.startDate,
+  end: custom.value ? customEnd.value : props.endDate,
+}))
+const dateError = computed(() => {
+  if (!custom.value) return ''
+  if (!customStart.value || !customEnd.value) return 'Choose both a start and an end date.'
+  if (customStart.value > customEnd.value) return 'End date must be on or after start date.'
+  return ''
+})
+
+function selectWindow(value) {
+  custom.value = value === 'custom'
+  if (custom.value) {
+    customStart.value ||= props.startDate
+    customEnd.value ||= props.endDate
+  } else {
+    emit('update:windowDays', Number(value))
+  }
+}
+
+function analyze() {
+  if (!dateError.value) emit('analyze', range.value)
+}
 </script>
 
 <template>
@@ -53,13 +82,11 @@ defineEmits([
       </label>
       <label class="field">
         Window around shipment date
-        <select
-          :value="windowDays"
-          @change="$emit('update:windowDays', Number($event.target.value))"
-        >
+        <select :value="custom ? 'custom' : windowDays" @change="selectWindow($event.target.value)">
           <option :value="7">±7 days</option>
           <option :value="15">±15 days</option>
           <option :value="30">±30 days</option>
+          <option value="custom">Custom</option>
         </select>
       </label>
       <label class="field">
@@ -74,17 +101,43 @@ defineEmits([
           "
         />
       </label>
+      <template v-if="custom">
+        <label class="field">
+          Start date
+          <input
+            v-model="customStart"
+            type="date"
+            required
+            :max="customEnd || undefined"
+            :aria-invalid="!!dateError"
+            aria-describedby="custom-date-error"
+          />
+        </label>
+        <label class="field">
+          End date
+          <input
+            v-model="customEnd"
+            type="date"
+            required
+            :min="customStart || undefined"
+            :aria-invalid="!!dateError"
+            aria-describedby="custom-date-error"
+          />
+        </label>
+      </template>
     </div>
-    <p class="period">Analyzed period: {{ startDate }} to {{ endDate }}</p>
+    <p v-if="dateError" id="custom-date-error" class="error" role="alert">{{ dateError }}</p>
+    <p class="period">Analyzed period: {{ range.start || '—' }} to {{ range.end || '—' }}</p>
     <button
       type="button"
       :disabled="
         selectedSeriesId === null ||
         (showFret && selectedFretSeriesId === null) ||
         analyzing ||
-        loading
+        loading ||
+        !!dateError
       "
-      @click="$emit('analyze')"
+      @click="analyze"
     >
       {{ analyzing ? 'Analyzing...' : 'Analyze prices' }}
     </button>

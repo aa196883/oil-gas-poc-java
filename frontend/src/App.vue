@@ -114,7 +114,7 @@ function shiftDate(dateString, days) {
 const startDate = computed(() => shiftDate(operation.value.shippedOnBoard, -windowDays.value))
 const endDate = computed(() => shiftDate(operation.value.shippedOnBoard, windowDays.value))
 
-async function analyze() {
+async function analyze({ start, end }) {
   if (selectedSeriesId.value === null || !operation.value.unit) return
   analyzing.value = true
   analysisError.value = null
@@ -142,8 +142,8 @@ async function analyze() {
       throw new Error('Enter a positive price and quantity.')
     }
     const params = new URLSearchParams({
-      start: startDate.value,
-      end: endDate.value,
+      start,
+      end,
       unit,
     })
     const includeFreight =
