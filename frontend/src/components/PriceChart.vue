@@ -16,7 +16,7 @@ const props = defineProps({
 })
 
 const chartElement = ref(null)
-const showDeltas = ref(true)
+const showDeltas = ref(false)
 const showCommodityPrices = ref(false)
 const showQuantiles = ref(false)
 const showMean = ref(false)
@@ -546,16 +546,14 @@ watch(
   .results-toolbar {
     flex-direction: column;
   }
-  .chart-toolbar {
-    justify-content: flex-start;
-  }
 }
 .chart-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
   gap: 12px 18px;
-  max-width: 520px;
+  width: 440px;
+  max-width: 100%;
+  flex-shrink: 0;
   margin-bottom: 12px;
 }
 
@@ -567,6 +565,11 @@ watch(
   font-size: 13px;
   color: #475569;
   cursor: pointer;
+}
+
+.chart-toolbar input[type='checkbox'] {
+  flex-shrink: 0;
+  margin: 0;
 }
 
 .chart {

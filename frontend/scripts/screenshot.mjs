@@ -389,7 +389,7 @@ try {
   assert.equal(await page.getByLabel('Show freight price').count(), 0)
   assert.equal(await page.getByLabel('Show quantiles').isChecked(), false)
   // Hidden commodity and difference layers must still supply all tooltip values.
-  await page.getByLabel('Show differences (%)').uncheck()
+  assert.equal(await page.getByLabel('Show differences (%)').isChecked(), false)
   const hoverMarket = async () => {
     await page.locator('.chart').scrollIntoViewIfNeeded()
     const point = await page.evaluate(async () => {
@@ -573,6 +573,9 @@ try {
   await page.getByRole('button', { name: 'Analyze prices' }).click()
   await page.getByRole('status').filter({ hasText: 'Could not load tolerated margins' }).waitFor()
   assert.equal(await marginToggle.isDisabled(), true)
+  assert.equal(await page.getByLabel('Show differences (%)').isChecked(), false)
+  assert.deepEqual(await readDifferenceColors(), [])
+  await page.getByLabel('Show differences (%)').check()
   assert.deepEqual(await readDifferenceColors(), Array(5).fill('#ef4444'))
   assert.match(await outOfMargin.textContent(), /100.00\s*%/)
   assert.deepEqual(await readBand(), [])
