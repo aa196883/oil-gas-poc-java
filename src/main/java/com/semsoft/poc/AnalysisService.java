@@ -41,6 +41,25 @@ public class AnalysisService {
         return computeMean(getAnalysisPrices(seriesId, start, end, unit, freightId));
     }
 
+    public List<Boolean> getWithinMargins(
+        List<PricePoint> prices, List<PricePoint> lowerBounds, List<PricePoint> upperBounds
+    ) {
+        PriceService.validatePrices(prices);
+        PriceService.validatePrices(lowerBounds);
+        PriceService.validatePrices(upperBounds);
+        Map<LocalDate, BigDecimal> lowerByDate = new LinkedHashMap<>();
+        Map<LocalDate, BigDecimal> upperByDate = new LinkedHashMap<>();
+        lowerBounds.forEach(point -> lowerByDate.put(point.date(), point.price()));
+        upperBounds.forEach(point -> upperByDate.put(point.date(), point.price()));
+        return prices.stream().map(point -> {
+            BigDecimal lower = lowerByDate.get(point.date());
+            BigDecimal upper = upperByDate.get(point.date());
+            return lower != null && upper != null
+                && point.price().compareTo(lower.min(upper)) >= 0
+                && point.price().compareTo(lower.max(upper)) <= 0;
+        }).toList();
+    }
+
     public BigDecimal computeMean(List<PricePoint> prices) {
         PriceService.validatePrices(prices);
         if (prices.isEmpty()) {

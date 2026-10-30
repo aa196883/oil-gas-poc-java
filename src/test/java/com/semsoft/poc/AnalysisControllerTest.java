@@ -34,6 +34,27 @@ class AnalysisControllerTest {
     }
 
     @Test
+    void shouldReturnMarginFlagsAndRejectInvalidRequests() throws Exception {
+        mvc.perform(post("/api/analysis/within-margins")
+                .contentType(MediaType.APPLICATION_JSON).content("""
+                    {"prices":[{"date":"2026-01-01","price":10},{"date":"2026-01-02","price":10}],
+                     "lowerBounds":[{"date":"2026-01-01","price":10}],
+                     "upperBounds":[{"date":"2026-01-01","price":20}]}
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0]").value(true))
+            .andExpect(jsonPath("$[1]").value(false));
+        for (String body : List.of("{}", """
+            {"prices":[{"date":"2026-01-01"}],"lowerBounds":[],"upperBounds":[]}
+            """)) {
+            mvc.perform(post("/api/analysis/within-margins")
+                    .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
+        }
+    }
+
+    @Test
     void shouldReturnMeanAndRejectEmptyPricesOrMissingParameters() throws Exception {
         LocalDate date = LocalDate.of(2026, 1, 1);
         when(seriesService.getPrices(1L, date, date, "USD/MT"))

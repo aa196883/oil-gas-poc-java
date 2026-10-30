@@ -30,6 +30,7 @@ const prices = ref([])
 const commodityPrices = ref([])
 const freightPrices = ref([])
 const marginBounds = ref([])
+const withinMargins = ref([])
 const marginError = ref(null)
 const resultReferencePrice = ref(0)
 const resultUnit = ref('')
@@ -123,6 +124,7 @@ async function analyze({ start, end }) {
   commodityPrices.value = []
   freightPrices.value = []
   marginBounds.value = []
+  withinMargins.value = []
   marginError.value = null
   try {
     const { unit } = operation.value
@@ -199,6 +201,12 @@ async function analyze({ start, end }) {
       post('/api/analysis/deltas', { prices: pricePoints, referencePrice }),
       boundsRequest,
     ])
+    const [lowerBounds = [], upperBounds = []] = boundaryResult.bounds ?? []
+    withinMargins.value = await post('/api/analysis/within-margins', {
+      prices: pricePoints.map((point) => ({ date: point.date, price: referencePrice })),
+      lowerBounds,
+      upperBounds,
+    })
     prices.value = pricePoints
     commodityPrices.value = includeFreight ? commodityPoints : []
     // Use the freight amounts actually applied to the market dates in the tooltip.
@@ -260,6 +268,7 @@ onMounted(loadSeries)
       :commodity-prices="commodityPrices"
       :freight-prices="freightPrices"
       :margin-bounds="marginBounds"
+      :within-margins="withinMargins"
       :margin-error="marginError"
       :reference-price="resultReferencePrice"
       :unit="resultUnit"

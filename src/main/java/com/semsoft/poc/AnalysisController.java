@@ -30,6 +30,18 @@ public class AnalysisController {
         this.deltaService = deltaService;
     }
 
+    public record MarginRequest(
+        List<PricePoint> prices, List<PricePoint> lowerBounds, List<PricePoint> upperBounds
+    ) {}
+
+    @Operation(summary = "Check prices against tolerated margins",
+        description = "Returns one boolean per supplied price, in input order. Bounds are matched by date "
+            + "and are inclusive; missing bounds return false. All prices must use the same unit.")
+    @PostMapping("/within-margins")
+    public List<Boolean> getWithinMargins(@RequestBody MarginRequest request) {
+        return analysisService.getWithinMargins(request.prices(), request.lowerBounds(), request.upperBounds());
+    }
+
     public record DeltaRequest(List<PricePoint> prices, BigDecimal referencePrice) {}
 
     @PostMapping("/deltas")

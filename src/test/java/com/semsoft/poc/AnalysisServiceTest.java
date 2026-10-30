@@ -15,6 +15,37 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class AnalysisServiceTest {
 
     @Test
+    void shouldCheckInclusiveMarginsByDateInPriceOrder() {
+        AnalysisService service = new AnalysisService(mock(SeriesService.class), new PriceService());
+        LocalDate date = LocalDate.of(2026, 1, 1);
+        List<PricePoint> prices = List.of(
+            new PricePoint(date.plusDays(1), new BigDecimal("15")),
+            new PricePoint(date, new BigDecimal("10.00")),
+            new PricePoint(date, new BigDecimal("20")),
+            new PricePoint(date, new BigDecimal("9.99")),
+            new PricePoint(date, new BigDecimal("20.01")),
+            new PricePoint(date.plusDays(2), new BigDecimal("15")),
+            new PricePoint(date.plusDays(3), new BigDecimal("15"))
+        );
+        List<PricePoint> lower = List.of(
+            new PricePoint(date, new BigDecimal("10")),
+            new PricePoint(date.plusDays(1), new BigDecimal("20")),
+            new PricePoint(date.plusDays(2), new BigDecimal("10"))
+        );
+        List<PricePoint> upper = List.of(
+            new PricePoint(date.plusDays(1), new BigDecimal("10")),
+            new PricePoint(date, new BigDecimal("20")),
+            new PricePoint(date.plusDays(3), new BigDecimal("20"))
+        );
+
+        assertEquals(List.of(true, true, true, false, false, false, false),
+            service.getWithinMargins(prices, lower, upper));
+        assertEquals(List.of(), service.getWithinMargins(List.of(), lower, upper));
+        assertThrows(IllegalArgumentException.class,
+            () -> service.getWithinMargins(prices, null, upper));
+    }
+
+    @Test
     void shouldGetMeanWithOptionalFreightIncludingEarlierFreight() {
         SeriesService series = mock(SeriesService.class);
         AnalysisService service = new AnalysisService(series, new PriceService());

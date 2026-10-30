@@ -8,6 +8,7 @@ const props = defineProps({
   prices: { type: Array, required: true },
   commodityPrices: { type: Array, required: true },
   freightPrices: { type: Array, required: true },
+  withinMargins: { type: Array, default: () => [] },
   marginBounds: { type: Array, default: () => [] },
   marginError: { type: String, default: null },
   unit: { type: String, required: true },
@@ -66,24 +67,6 @@ const layerHelp = {
 const quantileLevels = [0.05, 0.25, 0.5, 0.75, 0.95]
 
 let chart = null
-
-const boundariesByTime = computed(
-  () => new Map(boundaryPoints.value.map((point) => [point.time, point])),
-)
-
-function deltaColor(time) {
-  const bounds = boundariesByTime.value.get(time)
-  const price = props.referencePrice
-  const withinBounds =
-    bounds &&
-    Number.isFinite(bounds.lower) &&
-    Number.isFinite(bounds.upper) &&
-    Number.isFinite(price) &&
-    price >= Math.min(bounds.lower, bounds.upper) &&
-    price <= Math.max(bounds.lower, bounds.upper)
-
-  return withinBounds ? '#22c55e' : '#ef4444'
-}
 
 function computeQuantiles(prices) {
   if (!prices.length) return {}
@@ -286,7 +269,7 @@ function updateChart() {
               y2: end[1],
             },
             style: {
-              stroke: deltaColor(time),
+              stroke: props.withinMargins[params.dataIndex] === true ? '#22c55e' : '#ef4444',
               lineWidth: 4,
               opacity: 0.8,
             },
@@ -440,6 +423,7 @@ watch(
     showMean.value,
     showMargins.value,
     props.marginBounds,
+    props.withinMargins,
   ],
   updateChart,
 )

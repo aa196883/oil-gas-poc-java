@@ -91,6 +91,25 @@ try {
       body: JSON.stringify(failMargins ? {} : toPoints(values)),
     })
   })
+  await page.route('**/api/analysis/within-margins', (route) => {
+    assert.equal(route.request().method(), 'POST')
+    const body = route.request().postDataJSON()
+    assert.deepEqual(body.prices, toPoints(Array(5).fill(75)))
+    if (!body.lowerBounds.length) {
+      assert.deepEqual(body.upperBounds, [])
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify(Array(5).fill(false)),
+      })
+    }
+    assert.deepEqual(body.lowerBounds, toPoints([54, 61, 59, 75, 78]))
+    assert.deepEqual(body.upperBounds, toPoints([82, 85, 74, 90, 103]))
+    // Deliberately override the first flag to prove colors come from the API.
+    return route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify([false, true, false, true, false]),
+    })
+  })
   await page.route('**/api/analysis/deltas', (route) => {
     assert.equal(route.request().method(), 'POST')
     const body = route.request().postDataJSON()
@@ -441,8 +460,8 @@ try {
         (_, index) => data.getItemGraphicEl(index).style.stroke,
       )
     })
-  // Declared price is 75: inside, inside, above, exactly on lower bound, below.
-  const expectedColors = ['#22c55e', '#22c55e', '#ef4444', '#22c55e', '#ef4444']
+  // Use the API flags, including its deliberately overridden first flag.
+  const expectedColors = ['#ef4444', '#22c55e', '#ef4444', '#22c55e', '#ef4444']
   assert.deepEqual(await readDifferenceColors(), expectedColors)
   assert.deepEqual(await readBand(), [])
   await marginToggle.check()
