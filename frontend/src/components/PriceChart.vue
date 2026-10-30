@@ -432,7 +432,12 @@ watch(
 <template>
   <div class="chart-container">
     <div class="results-toolbar">
-      <AdditionalInformation :mean="mean" :reference-price="referencePrice" :unit="unit" />
+      <AdditionalInformation
+        :mean="mean"
+        :reference-price="referencePrice"
+        :unit="unit"
+        :within-margins="withinMargins"
+      />
       <div class="chart-toolbar">
         <label>
           <input

@@ -488,8 +488,12 @@ try {
   await page.getByLabel('Show quantiles').check()
   await page.getByLabel('Show average price').check()
   await page.getByText('Average Price : 77.23 USD/BBL', { exact: true }).waitFor()
+  const outOfMargin = page
+    .locator('.additional-information > div')
+    .filter({ hasText: 'Out of margin proportions' })
+  assert.match(await outOfMargin.textContent(), /60.00\s*%/)
   assert.match(await page.locator('.additional-information').textContent(), /77.23/)
-  assert.match(await page.locator('.additional-information').textContent(), /\+2.23/)
+  assert.match(await page.locator('.additional-information').textContent(), /-2.23/)
   await page.waitForTimeout(400)
   await page.getByLabel('Show differences (%)').uncheck()
   await page.getByLabel('Show differences (%)').check()
@@ -498,6 +502,7 @@ try {
   await page.mouse.move(0, 0)
   await page.locator(':focus').evaluateAll((elements) => elements.forEach((el) => el.blur()))
   await page.screenshot({ path: outputPath.pathname, fullPage: true })
+  assert.match(await page.locator('.additional-information').textContent(), /\(-2.98%\)/)
   const labels = page.locator('.quantile-label')
   assert.equal(await labels.count(), 5)
   const boxes = await page.locator('.reference-label').evaluateAll((elements) =>
@@ -569,6 +574,7 @@ try {
   await page.getByRole('status').filter({ hasText: 'Could not load tolerated margins' }).waitFor()
   assert.equal(await marginToggle.isDisabled(), true)
   assert.deepEqual(await readDifferenceColors(), Array(5).fill('#ef4444'))
+  assert.match(await outOfMargin.textContent(), /100.00\s*%/)
   assert.deepEqual(await readBand(), [])
   failMargins = false
   await page.getByLabel('Commodity series').selectOption('3')
