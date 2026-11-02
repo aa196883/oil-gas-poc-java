@@ -11,9 +11,9 @@ const props = defineProps({
 })
 const difference = computed(() => (props.mean === null ? null : props.referencePrice - props.mean))
 const percentage = computed(() =>
-  difference.value === null || props.referencePrice === 0
+  difference.value === null || props.mean === 0
     ? null
-    : (difference.value / props.referencePrice) * 100,
+    : (difference.value / Math.abs(props.mean)) * 100,
 )
 const outOfMarginPercentage = computed(() =>
   props.withinMargins.length

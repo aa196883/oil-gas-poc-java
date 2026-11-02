@@ -575,7 +575,7 @@ try {
   await page.mouse.move(0, 0)
   await page.locator(':focus').evaluateAll((elements) => elements.forEach((el) => el.blur()))
   await page.screenshot({ path: outputPath.pathname, fullPage: true })
-  assert.match(await page.locator('.additional-information').textContent(), /\(-2.98%\)/)
+  assert.match(await page.locator('.additional-information').textContent(), /\(-2.89%\)/)
   const labels = page.locator('.quantile-label')
   assert.equal(await labels.count(), 5)
   const boxes = await page.locator('.reference-label').evaluateAll((elements) =>
