@@ -8,6 +8,8 @@ const props = defineProps({
   prices: { type: Array, required: true },
   commodityPrices: { type: Array, required: true },
   freightPrices: { type: Array, required: true },
+  zscore: { type: Number, default: null },
+  zscoreError: { type: String, default: null },
   withinMargins: { type: Array, default: () => [] },
   marginBounds: { type: Array, default: () => [] },
   marginError: { type: String, default: null },
@@ -437,6 +439,8 @@ watch(
         :reference-price="referencePrice"
         :unit="unit"
         :within-margins="withinMargins"
+        :zscore="zscore"
+        :zscore-error="zscoreError"
       />
       <div class="chart-toolbar">
         <label>

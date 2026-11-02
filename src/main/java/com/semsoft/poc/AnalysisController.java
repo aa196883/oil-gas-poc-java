@@ -50,6 +50,17 @@ public class AnalysisController {
         return deltaService.getDeltas(request.prices(), request.referencePrice());
     }
 
+    public record ZscoreRequest(List<PricePoint> prices, BigDecimal referencePrice) {}
+    public record ZscoreResult(BigDecimal zscore) {}
+
+    @Operation(summary = "Compute robust Z-score from adjusted prices",
+        description = "Computes 0.67449 * (referencePrice - median) / MAD. "
+            + "All prices must use the same unit. Returns zscore: null when MAD is zero.")
+    @PostMapping("/zscore")
+    public ZscoreResult computeZscore(@RequestBody ZscoreRequest request) {
+        return new ZscoreResult(analysisService.computeZscore(request.prices(), request.referencePrice()));
+    }
+
     @Operation(summary = "Compute mean price",
         description = "Computes the arithmetic mean, optionally including freight, in the requested unit.")
     @GetMapping("/{id}/mean")

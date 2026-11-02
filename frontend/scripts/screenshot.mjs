@@ -91,6 +91,19 @@ try {
       body: JSON.stringify(failMargins ? {} : toPoints(values)),
     })
   })
+  let zscoreMode = 'value'
+  await page.route('**/api/analysis/zscore', (route) => {
+    assert.equal(route.request().method(), 'POST')
+    const body = route.request().postDataJSON()
+    assert.equal(body.referencePrice, 75)
+    const withFreight = body.prices[0].price === marketValues[0] + expectedPremium
+    assert.deepEqual(body.prices, adjusted(withFreight ? marketValues : commodityValues))
+    return route.fulfill({
+      status: zscoreMode === 'error' ? 503 : 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ zscore: zscoreMode === 'value' ? -0.21 : null }),
+    })
+  })
   await page.route('**/api/analysis/within-margins', (route) => {
     assert.equal(route.request().method(), 'POST')
     const body = route.request().postDataJSON()
@@ -488,6 +501,8 @@ try {
   await page.getByLabel('Show quantiles').check()
   await page.getByLabel('Show average price').check()
   await page.getByText('Average Price : 77.23 USD/BBL', { exact: true }).waitFor()
+  const zscoreInformation = page.locator('.zscore-information')
+  assert.match(await zscoreInformation.textContent(), /-0.21/)
   const outOfMargin = page
     .locator('.additional-information > div')
     .filter({ hasText: 'Out of margin proportions' })
@@ -624,6 +639,16 @@ try {
     path: new URL('../artifacts/premium-discount.png', import.meta.url).pathname,
     fullPage: true,
   })
+  for (const mode of ['null', 'error']) {
+    zscoreMode = mode
+    await page.getByRole('button', { name: 'Analyze prices' }).click()
+    await marginToggle.waitFor()
+    assert.equal(await zscoreInformation.locator('dd').textContent(), '—')
+    assert.match(
+      await zscoreInformation.textContent(),
+      mode === 'null' ? /median absolute deviation is zero/ : /Could not load robust Z-score/,
+    )
+  }
   assert.deepEqual(removedRequests, [])
   console.log(`Screenshot saved to ${outputPath.pathname}`)
 } finally {

@@ -34,6 +34,28 @@ class AnalysisControllerTest {
     }
 
     @Test
+    void shouldExposeZscoreForAdjustedPrices() throws Exception {
+        mvc.perform(post("/api/analysis/zscore").contentType(MediaType.APPLICATION_JSON).content("""
+            {"prices":[{"date":"2026-01-01","price":10},{"date":"2026-01-02","price":20}],
+             "referencePrice":20}
+            """))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.zscore").value(0.67449));
+        mvc.perform(post("/api/analysis/zscore").contentType(MediaType.APPLICATION_JSON).content("""
+            {"prices":[{"date":"2026-01-01","price":10}],"referencePrice":20}
+            """))
+            .andExpect(status().isOk())
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                .json("{\"zscore\":null}"));
+        for (String body : List.of("{}", "{\"prices\":[],\"referencePrice\":20}", """
+            {"prices":[{"date":"2026-01-01","price":10}],"referencePrice":0}
+            """)) {
+            mvc.perform(post("/api/analysis/zscore").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
+        }
+    }
+
+    @Test
     void shouldReturnMarginFlagsAndRejectInvalidRequests() throws Exception {
         mvc.perform(post("/api/analysis/within-margins")
                 .contentType(MediaType.APPLICATION_JSON).content("""

@@ -2,6 +2,8 @@
 import { computed } from 'vue'
 
 const props = defineProps({
+  zscore: { type: Number, default: null },
+  zscoreError: { type: String, default: null },
   withinMargins: { type: Array, default: () => [] },
   mean: { type: Number, default: null },
   referencePrice: { type: Number, required: true },
@@ -46,6 +48,13 @@ const format = (value) => (value === null ? '—' : value.toFixed(2))
         {{ format(outOfMarginPercentage) }}<span v-if="outOfMarginPercentage !== null">%</span>
       </dd>
     </div>
+    <div class="zscore-information">
+      <dt>Robust Z-score</dt>
+      <dd>{{ zscore > 0 ? '+' : '' }}{{ format(zscore) }}</dd>
+      <p v-if="zscoreError || zscore === null" class="metric-note" role="status">
+        {{ zscoreError || 'Undefined: median absolute deviation is zero.' }}
+      </p>
+    </div>
   </dl>
 </template>
 
@@ -65,6 +74,15 @@ const format = (value) => (value === null ? '—' : value.toFixed(2))
   .additional-information {
     flex-basis: auto;
   }
+}
+.zscore-information {
+  max-width: 240px;
+}
+.metric-note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #64748b;
 }
 dt {
   color: #64748b;

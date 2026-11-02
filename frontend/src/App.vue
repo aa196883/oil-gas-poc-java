@@ -32,6 +32,8 @@ const freightPrices = ref([])
 const marginBounds = ref([])
 const withinMargins = ref([])
 const marginError = ref(null)
+const zscore = ref(null)
+const zscoreError = ref(null)
 const resultReferencePrice = ref(0)
 const resultUnit = ref('')
 const units = computed(() =>
@@ -126,6 +128,8 @@ async function analyze({ start, end }) {
   marginBounds.value = []
   withinMargins.value = []
   marginError.value = null
+  zscore.value = null
+  zscoreError.value = null
   try {
     const { unit } = operation.value
     const adjustment = Number(premium.value)
@@ -197,9 +201,13 @@ async function analyze({ start, end }) {
             () => ({ error: 'Could not load tolerated margins. Run the analysis again to retry.' }),
           )
         : Promise.resolve({ error: 'Tolerated margins are unavailable for this series.' })
-    const [deltaPoints, boundaryResult] = await Promise.all([
+    const [deltaPoints, boundaryResult, zscoreResult] = await Promise.all([
       post('/api/analysis/deltas', { prices: pricePoints, referencePrice }),
       boundsRequest,
+      post('/api/analysis/zscore', { prices: pricePoints, referencePrice }).catch(() => ({
+        zscore: null,
+        error: 'Could not load robust Z-score. Run the analysis again to retry.',
+      })),
     ])
     const [lowerBounds = [], upperBounds = []] = boundaryResult.bounds ?? []
     withinMargins.value = await post('/api/analysis/within-margins', {
@@ -216,6 +224,8 @@ async function analyze({ start, end }) {
           price: Number(point.price) - Number(commodityPoints[index].price),
         }))
       : []
+    zscore.value = zscoreResult.zscore
+    zscoreError.value = zscoreResult.error ?? null
     deltas.value = deltaPoints
     marginBounds.value = boundaryResult.bounds ?? []
     marginError.value = boundaryResult.error ?? null
@@ -269,6 +279,8 @@ onMounted(loadSeries)
       :freight-prices="freightPrices"
       :margin-bounds="marginBounds"
       :within-margins="withinMargins"
+      :zscore="zscore"
+      :zscore-error="zscoreError"
       :margin-error="marginError"
       :reference-price="resultReferencePrice"
       :unit="resultUnit"

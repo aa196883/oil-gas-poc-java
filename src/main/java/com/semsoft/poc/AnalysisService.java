@@ -41,6 +41,36 @@ public class AnalysisService {
         return computeMean(getAnalysisPrices(seriesId, start, end, unit, freightId));
     }
 
+    public BigDecimal getZscore(
+        long seriesId, LocalDate start, LocalDate end, String unit, Long freightId,
+        BigDecimal referencePrice
+    ) {
+        return computeZscore(getAnalysisPrices(seriesId, start, end, unit, freightId), referencePrice);
+    }
+
+    // A zero MAD makes the score undefined, even when the reference equals the median.
+    public BigDecimal computeZscore(List<PricePoint> prices, BigDecimal referencePrice) {
+        PriceService.validatePrices(prices);
+        if (prices.isEmpty()) {
+            throw new IllegalArgumentException("Cannot compute Z-score on empty prices");
+        }
+        if (referencePrice == null || referencePrice.signum() <= 0) {
+            throw new IllegalArgumentException("Reference price must be strictly positive");
+        }
+        BigDecimal median = median(prices.stream().map(PricePoint::price).sorted().toList());
+        BigDecimal mad = median(prices.stream()
+            .map(point -> point.price().subtract(median).abs()).sorted().toList());
+        return mad.signum() == 0 ? null : new BigDecimal("0.67449")
+            .multiply(referencePrice.subtract(median))
+            .divide(mad, MathContext.DECIMAL128);
+    }
+
+    private BigDecimal median(List<BigDecimal> sorted) {
+        int middle = sorted.size() / 2;
+        return sorted.size() % 2 == 1 ? sorted.get(middle)
+            : sorted.get(middle - 1).add(sorted.get(middle)).divide(BigDecimal.valueOf(2));
+    }
+
     public List<Boolean> getWithinMargins(
         List<PricePoint> prices, List<PricePoint> lowerBounds, List<PricePoint> upperBounds
     ) {

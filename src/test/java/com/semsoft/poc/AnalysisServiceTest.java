@@ -15,6 +15,50 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class AnalysisServiceTest {
 
     @Test
+    void shouldComputeRobustZscoreUsingMedianAbsoluteDeviation() {
+        AnalysisService service = new AnalysisService(mock(SeriesService.class), new PriceService());
+        LocalDate date = LocalDate.of(2026, 1, 1);
+        List<PricePoint> prices = List.of(100, 1, 4, 2, 3).stream()
+            .map(value -> new PricePoint(date, BigDecimal.valueOf(value))).toList();
+        assertEquals(0, new BigDecimal("1.34898").compareTo(
+            service.computeZscore(prices, new BigDecimal("5"))));
+        assertEquals(0, new BigDecimal("-1.34898").compareTo(
+            service.computeZscore(prices, BigDecimal.ONE)));
+        assertEquals(0, BigDecimal.ZERO.compareTo(
+            service.computeZscore(prices, new BigDecimal("3"))));
+        List<PricePoint> evenPrices = List.of(5, 1, 4, 2).stream()
+            .map(value -> new PricePoint(date, BigDecimal.valueOf(value))).toList();
+        assertEquals(0, new BigDecimal("1.34898").compareTo(
+            service.computeZscore(evenPrices, new BigDecimal("6"))));
+        for (List<Integer> values : List.of(List.of(2), List.of(2, 2, 2), List.of(2, 2, 100))) {
+            assertEquals(null, service.computeZscore(values.stream()
+                .map(value -> new PricePoint(date, BigDecimal.valueOf(value))).toList(), BigDecimal.TEN));
+        }
+        assertThrows(IllegalArgumentException.class,
+            () -> service.computeZscore(List.of(), BigDecimal.TEN));
+        assertThrows(IllegalArgumentException.class, () -> service.computeZscore(prices, null));
+        assertThrows(IllegalArgumentException.class, () -> service.computeZscore(prices, BigDecimal.ZERO));
+    }
+
+    @Test
+    void shouldGetZscoreWithOptionalFreight() {
+        SeriesService series = mock(SeriesService.class);
+        AnalysisService service = new AnalysisService(series, new PriceService());
+        LocalDate start = LocalDate.of(2026, 1, 1);
+        LocalDate end = start.plusDays(1);
+        when(series.getPrices(1L, start, end, "USD/MT")).thenReturn(List.of(
+            new PricePoint(start, BigDecimal.TEN),
+            new PricePoint(end, new BigDecimal("20"))));
+        when(series.getPrices(2L, LocalDate.of(1, 1, 1), end, "USD/MT")).thenReturn(List.of(
+            new PricePoint(start.minusDays(1), new BigDecimal("2")),
+            new PricePoint(end, new BigDecimal("4"))));
+        assertEquals(0, new BigDecimal("1.214082").compareTo(
+            service.getZscore(1L, start, end, "USD/MT", null, new BigDecimal("24"))));
+        assertEquals(0, new BigDecimal("0.67449").compareTo(
+            service.getZscore(1L, start, end, "USD/MT", 2L, new BigDecimal("24"))));
+    }
+
+    @Test
     void shouldCheckInclusiveMarginsByDateInPriceOrder() {
         AnalysisService service = new AnalysisService(mock(SeriesService.class), new PriceService());
         LocalDate date = LocalDate.of(2026, 1, 1);
