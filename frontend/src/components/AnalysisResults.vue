@@ -1,6 +1,9 @@
 <script setup>
+import AlertDisplay from './AlertDisplay.vue'
 import PriceChart from './PriceChart.vue'
 defineProps({
+  alerts: { type: Array, default: () => [] },
+  alertsError: { type: String, default: null },
   deltas: { type: Array, required: true },
   prices: { type: Array, required: true },
   commodityPrices: { type: Array, required: true },
@@ -26,6 +29,8 @@ defineProps({
       No results yet. Run an analysis to display price differences.
     </p>
     <template v-else>
+      <AlertDisplay :alerts="alerts" />
+      <p v-if="alertsError" class="error" role="status">{{ alertsError }}</p>
       <PriceChart
         :deltas="deltas"
         :prices="prices"

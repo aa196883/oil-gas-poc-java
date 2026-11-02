@@ -91,6 +91,40 @@ try {
       body: JSON.stringify(failMargins ? {} : toPoints(values)),
     })
   })
+  let alertMode = 'value'
+  const alertRequests = []
+  const sampleAlerts = [
+    {
+      type: 'TIME_OUTSIDE_MARGINS',
+      severity: 'high',
+      message:
+        'The declared price is outside the tolerated margins for 60% of observations (3 of 5; limit: 50%).',
+    },
+    {
+      type: 'BELOW_Q05',
+      severity: 'medium',
+      message: 'The declared price is below the 5th percentile of market prices (76.12).',
+    },
+  ]
+  await page.route('**/api/alerts', (route) => {
+    assert.equal(route.request().method(), 'POST')
+    const body = route.request().postDataJSON()
+    alertRequests.push(body)
+    assert.equal(body.declaredPrice, 75)
+    const withFreight = body.prices[0].price === marketValues[0] + expectedPremium
+    assert.deepEqual(body.prices, adjusted(withFreight ? marketValues : commodityValues))
+    if (body.lowerBounds.length) {
+      assert.deepEqual(body.lowerBounds, toPoints([54, 61, 59, 75, 78]))
+      assert.deepEqual(body.upperBounds, toPoints([82, 85, 74, 90, 103]))
+    } else {
+      assert.deepEqual(body.upperBounds, [])
+    }
+    return route.fulfill({
+      status: alertMode === 'error' ? 503 : 200,
+      contentType: 'application/json',
+      body: JSON.stringify(alertMode === 'value' ? sampleAlerts : []),
+    })
+  })
   let zscoreMode = 'value'
   await page.route('**/api/analysis/zscore', (route) => {
     assert.equal(route.request().method(), 'POST')
@@ -266,6 +300,7 @@ try {
 
   await page.goto(baseUrl)
   assert.equal(countryRequests, 1)
+  assert.equal(alertRequests.length, 0)
   await page.getByLabel('Country of origin').fill('Uni')
   assert.deepEqual(await page.locator('#origin-countries button').allTextContents(), [
     'United Kingdom',
@@ -448,6 +483,29 @@ try {
     1,
   )
   assert.equal(deltaRequests.length, 1)
+  assert.equal(alertRequests.length, 1)
+  assert.equal(await page.locator('.alert-message--high').count(), 1)
+  assert.equal(await page.locator('.alert-message--medium').count(), 1)
+  const resultsCard = page
+    .locator('section.card')
+    .filter({ has: page.getByRole('heading', { name: '03 — Results' }) })
+  assert.equal(await resultsCard.locator('.alert-message').count(), 2)
+  await page.mouse.move(0, 0)
+  await page.locator(':focus').evaluateAll((elements) => elements.forEach((el) => el.blur()))
+  await resultsCard.screenshot({
+    path: new URL('../artifacts/alerts-desktop.png', import.meta.url).pathname,
+  })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.waitForTimeout(400)
+  await page.mouse.move(0, 0)
+  await page.locator(':focus').evaluateAll((elements) => elements.forEach((el) => el.blur()))
+  await resultsCard.screenshot({
+    path: new URL('../artifacts/alerts-mobile.png', import.meta.url).pathname,
+  })
+  const alertBox = await page.locator('.alerts').boundingBox()
+  assert.ok(alertBox.x >= 0 && alertBox.x + alertBox.width <= 390)
+  await page.setViewportSize({ width: 1440, height: 1200 })
+  await page.waitForTimeout(400)
   const readBand = () =>
     page.evaluate(async () => {
       const source = await (await fetch('/src/components/PriceChart.vue')).text()
@@ -647,6 +705,16 @@ try {
     assert.match(
       await zscoreInformation.textContent(),
       mode === 'null' ? /median absolute deviation is zero/ : /Could not load robust Z-score/,
+    )
+  }
+  for (const mode of ['empty', 'error', 'value']) {
+    alertMode = mode
+    await page.getByRole('button', { name: 'Analyze prices' }).click()
+    await marginToggle.waitFor()
+    assert.equal(await page.locator('.alert-message').count(), mode === 'value' ? 2 : 0)
+    assert.equal(
+      await resultsCard.locator('p.error[role="status"]').count(),
+      mode === 'error' ? 1 : 0,
     )
   }
   assert.deepEqual(removedRequests, [])

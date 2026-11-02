@@ -25,6 +25,8 @@ const selectedFretSeriesId = ref(null)
 const selectedSeriesId = ref(null)
 const windowDays = ref(15)
 const premium = ref(0)
+const alerts = ref([])
+const alertsError = ref(null)
 const deltas = ref([])
 const prices = ref([])
 const commodityPrices = ref([])
@@ -121,6 +123,8 @@ async function analyze({ start, end }) {
   if (selectedSeriesId.value === null || !operation.value.unit) return
   analyzing.value = true
   analysisError.value = null
+  alerts.value = []
+  alertsError.value = null
   deltas.value = []
   prices.value = []
   commodityPrices.value = []
@@ -210,11 +214,25 @@ async function analyze({ start, end }) {
       })),
     ])
     const [lowerBounds = [], upperBounds = []] = boundaryResult.bounds ?? []
-    withinMargins.value = await post('/api/analysis/within-margins', {
-      prices: pricePoints.map((point) => ({ date: point.date, price: referencePrice })),
-      lowerBounds,
-      upperBounds,
-    })
+    const [marginFlags, alertResult] = await Promise.all([
+      post('/api/analysis/within-margins', {
+        prices: pricePoints.map((point) => ({ date: point.date, price: referencePrice })),
+        lowerBounds,
+        upperBounds,
+      }),
+      post('/api/alerts', {
+        prices: pricePoints,
+        declaredPrice: referencePrice,
+        lowerBounds,
+        upperBounds,
+      }).then(
+        (alerts) => ({ alerts }),
+        () => ({ error: 'Could not load alerts. Run the analysis again to retry.' }),
+      ),
+    ])
+    withinMargins.value = marginFlags
+    alerts.value = alertResult.alerts ?? []
+    alertsError.value = alertResult.error ?? null
     prices.value = pricePoints
     commodityPrices.value = includeFreight ? commodityPoints : []
     // Use the freight amounts actually applied to the market dates in the tooltip.
@@ -273,6 +291,8 @@ onMounted(loadSeries)
       @analyze="analyze"
     />
     <AnalysisResults
+      :alerts="alerts"
+      :alerts-error="alertsError"
       :deltas="deltas"
       :prices="prices"
       :commodity-prices="commodityPrices"

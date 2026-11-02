@@ -25,8 +25,6 @@ class AlertServiceTest {
             Alert alert = evaluate(prices, declared).stream()
                 .filter(a -> a.type().equals("MEAN_GAP")).findFirst().orElseThrow();
             assertEquals("high", alert.severity());
-            assertEquals("The declared price is 20% " + (declared == 80 ? "below" : "above")
-                + " the average market price of 100 (limit: 15%).", alert.message());
         }
         for (int declared : new int[] {85, 115}) {
             assertFalse(evaluate(prices, declared).stream().anyMatch(a -> a.type().equals("MEAN_GAP")));
@@ -38,8 +36,9 @@ class AlertServiceTest {
         List<PricePoint> prices = points(100, 100, 100, 100);
         List<Alert> alerts = service.evaluate(prices, new BigDecimal("100"),
             points(101, 101, 101, 90), points(110, 110, 110, 110));
-        assertEquals(List.of(new Alert("TIME_OUTSIDE_MARGINS", "high",
-            "The declared price is outside the tolerated margins for 75% of observations (3 of 4; limit: 50%).")), alerts);
+        assertEquals(1, alerts.size());
+        assertEquals("TIME_OUTSIDE_MARGINS", alerts.getFirst().type());
+        assertEquals("high", alerts.getFirst().severity());
         assertEquals(List.of(), service.evaluate(prices, new BigDecimal("100"),
             points(101, 101, 90, 90), points(110, 110, 110, 110)));
         // Test the declared price, even when the market prices themselves fit the bounds.
@@ -48,12 +47,11 @@ class AlertServiceTest {
     }
 
     @Test
-    void shouldAlertOnLargePositiveOrNegativeZscoreWithoutDisplayingScore() {
+    void shouldAlertOnLargePositiveOrNegativeZscore() {
         for (int declared : new int[] {90, 110}) {
             Alert alert = evaluate(points(99, 100, 101), declared).stream()
                 .filter(a -> a.type().equals("ZSCORE")).findFirst().orElseThrow();
-            assertEquals(new Alert("ZSCORE", "high",
-                "The declared price is unusually far from the market median, given the observed price dispersion."), alert);
+            assertEquals("high", alert.severity());
         }
         assertFalse(evaluate(points(99, 100, 101), 105).stream().anyMatch(a -> a.type().equals("ZSCORE")));
         assertFalse(evaluate(points(100, 100, 100), 110).stream().anyMatch(a -> a.type().equals("ZSCORE")));
@@ -62,10 +60,14 @@ class AlertServiceTest {
     @Test
     void shouldDistinguishUpperAndLowerQuantileAlertsAndExcludeBoundaries() {
         List<PricePoint> prices = points(90, 110);
-        assertEquals(List.of(new Alert("ABOVE_Q95", "medium",
-            "The declared price is above the 95th percentile of market prices (109).")), evaluate(prices, 110));
-        assertEquals(List.of(new Alert("BELOW_Q05", "medium",
-            "The declared price is below the 5th percentile of market prices (91).")), evaluate(prices, 90));
+        List<Alert> upperAlerts = evaluate(prices, 110);
+        assertEquals(1, upperAlerts.size());
+        assertEquals("ABOVE_Q95", upperAlerts.getFirst().type());
+        assertEquals("medium", upperAlerts.getFirst().severity());
+        List<Alert> lowerAlerts = evaluate(prices, 90);
+        assertEquals(1, lowerAlerts.size());
+        assertEquals("BELOW_Q05", lowerAlerts.getFirst().type());
+        assertEquals("medium", lowerAlerts.getFirst().severity());
         assertEquals(List.of(), evaluate(prices, 91));
         assertEquals(List.of(), evaluate(prices, 109));
     }

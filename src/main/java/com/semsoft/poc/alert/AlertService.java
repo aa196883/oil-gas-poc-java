@@ -42,7 +42,7 @@ public class AlertService {
                 alerts.add(new Alert("MEAN_GAP", "high",
                     "The declared price is " + format(gap.movePointRight(2)) + "% "
                         + (declaredPrice.compareTo(mean) > 0 ? "above" : "below")
-                        + " the average market price of " + format(mean) + " (limit: 15%)."));
+                        + " the average market price of " + format(mean) + "."));
             }
         }
 
@@ -52,8 +52,7 @@ public class AlertService {
         if (outsideFraction.compareTo(MAX_TIME_OUTSIED_MARGINS) > 0) {
             alerts.add(new Alert("TIME_OUTSIDE_MARGINS", "high",
                 "The declared price is outside the tolerated margins for "
-                    + format(outsideFraction.movePointRight(2)) + "% of observations ("
-                    + outsideCount + " of " + withinMargins.size() + "; limit: 50%)."));
+                    + format(outsideFraction.movePointRight(2)) + "% of observations."));
         }
 
         if (zscore != null && zscore.abs().compareTo(MAX_ABSOLUTE_ZSCORE) > 0) {
