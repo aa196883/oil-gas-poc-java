@@ -25,7 +25,7 @@ import org.springframework.stereotype.Service;
 public class CsvUpdateDump {
 
     public static final LocalDate CUTOFF_DATE = LocalDate.of(2026, 10, 15);
-    public static final Path DUMP_PATH = Path.of("src/main/resources/dump/dump.csv");
+    public static final Path DUMP_PATH = Path.of("src/main/resources/mock_bd_update/file.csv");
 
     private static final BigDecimal MAX_VARIATION = new BigDecimal("0.10");
     private static final BigDecimal NOISE_VARIATION = new BigDecimal("0.02");

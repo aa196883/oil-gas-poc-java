@@ -2,4 +2,4 @@
 target/
 .env
 /data/
-/src/main/resources/dump/
+/src/main/resources/mock_bd_update/
