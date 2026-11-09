@@ -6,7 +6,9 @@ import java.math.MathContext;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -73,11 +75,12 @@ public class CsvUpdateDump {
             throw new IllegalArgumentException("End date must be after the cutoff date");
         }
 
-        List<SeedPrice> seeds = jdbc.query("""
+        List<SeedPrice> rows = jdbc.query("""
             SELECT m.bloomberg_ticker, p.price
             FROM metadata m
             JOIN prices p ON p.metadata_id = m.id
-            WHERE p.date = (
+            WHERE m.bloomberg_ticker IS NOT NULL
+              AND p.date = (
                 SELECT MAX(p2.date)
                 FROM prices p2
                 WHERE p2.metadata_id = m.id
@@ -88,9 +91,13 @@ public class CsvUpdateDump {
                 rs.getString("bloomberg_ticker"),
                 rs.getBigDecimal("price")
             ), CUTOFF_DATE);
+        Map<String, SeedPrice> seeds = new LinkedHashMap<>();
+        for (SeedPrice row : rows) {
+            seeds.putIfAbsent(row.bloombergTicker(), row);
+        }
 
         StringBuilder csv = new StringBuilder("bloomberg_ticker,date,price\n");
-        for (SeedPrice seed : seeds) {
+        for (SeedPrice seed : seeds.values()) {
             BigDecimal target = target(seed.price());
             long days = endDate.toEpochDay() - CUTOFF_DATE.toEpochDay();
             for (long day = 1; day <= days; day++) {
