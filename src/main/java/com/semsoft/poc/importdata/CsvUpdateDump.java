@@ -74,7 +74,7 @@ public class CsvUpdateDump {
         }
 
         List<SeedPrice> seeds = jdbc.query("""
-            SELECT m.id AS metadata_id, p.price
+            SELECT m.bloomberg_ticker, p.price
             FROM metadata m
             JOIN prices p ON p.metadata_id = m.id
             WHERE p.date = (
@@ -85,11 +85,11 @@ public class CsvUpdateDump {
             )
             ORDER BY m.id
             """, (rs, rowNum) -> new SeedPrice(
-                rs.getLong("metadata_id"),
+                rs.getString("bloomberg_ticker"),
                 rs.getBigDecimal("price")
             ), CUTOFF_DATE);
 
-        StringBuilder csv = new StringBuilder("metadata_id,date,price\n");
+        StringBuilder csv = new StringBuilder("bloomberg_ticker,date,price\n");
         for (SeedPrice seed : seeds) {
             BigDecimal target = target(seed.price());
             long days = endDate.toEpochDay() - CUTOFF_DATE.toEpochDay();
@@ -102,7 +102,7 @@ public class CsvUpdateDump {
                 );
                 BigDecimal noise = BigDecimal.valueOf(random.nextDouble() * 2 - 1)
                     .multiply(seed.price().abs().multiply(NOISE_VARIATION));
-                csv.append(seed.metadataId()).append(',')
+                csv.append(seed.bloombergTicker()).append(',')
                     .append(date).append(',')
                     .append(interpolated.add(noise).max(BigDecimal.ZERO).stripTrailingZeros())
                     .append('\n');
@@ -128,7 +128,7 @@ public class CsvUpdateDump {
         ));
     }
 
-    private record SeedPrice(long metadataId, BigDecimal price) {}
+    private record SeedPrice(String bloombergTicker, BigDecimal price) {}
 }
 
 @Configuration(proxyBeanMethods = false)
