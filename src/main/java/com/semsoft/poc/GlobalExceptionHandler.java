@@ -7,6 +7,18 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(InvalidImportDataException.class)
+    public ResponseEntity<ApiError> handleInvalidImportData(
+        InvalidImportDataException exception
+    ) {
+        ApiError error = new ApiError(
+            "INVALID_IMPORT_DATA",
+            exception.getMessage()
+        );
+
+        return ResponseEntity.badRequest().body(error);
+    }
     
     @ExceptionHandler(SeriesNotFoundException.class)
     public ResponseEntity<ApiError> handleSeriesNotFound(

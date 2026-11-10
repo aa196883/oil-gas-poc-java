@@ -29,13 +29,19 @@ public class PriceImportService {
     public int importPrices(InputStream csv) throws IOException {
         byte[] contents = csv.readAllBytes();
         if (!isCorrectFormat(new ByteArrayInputStream(contents))) {
-            throw new IllegalArgumentException("Invalid CSV format");
+            throw new InvalidImportDataException(
+                "Invalid CSV format: expected header 'bloomberg_ticker,date,price' and three columns per row"
+            );
         }
         if (!hasCoherentTickers(new ByteArrayInputStream(contents))) {
-            throw new IllegalArgumentException("CSV contains an unknown or empty Bloomberg ticker");
+            throw new InvalidImportDataException(
+                "Invalid CSV data: every Bloomberg ticker must be non-empty and exist in metadata"
+            );
         }
         if (!hasValidDates(new ByteArrayInputStream(contents))) {
-            throw new IllegalArgumentException("CSV contains an invalid date or price");
+            throw new InvalidImportDataException(
+                "Invalid CSV data: dates and prices must be present and valid, with no duplicate ticker/date rows"
+            );
         }
 
         int count = 0;
